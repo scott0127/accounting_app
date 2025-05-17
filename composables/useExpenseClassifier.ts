@@ -18,14 +18,16 @@ export function useExpenseClassifier() {
   // Store user corrections for learning
   const userCorrections = ref<Record<string, string>>({})
   
-  // Try to load user corrections from localStorage
-  try {
-    const savedCorrections = localStorage.getItem('expenseClassifierCorrections')
-    if (savedCorrections) {
-      userCorrections.value = JSON.parse(savedCorrections)
+  // Try to load user corrections from localStorage (only in client side)
+  if (process.client) {
+    try {
+      const savedCorrections = localStorage.getItem('expenseClassifierCorrections')
+      if (savedCorrections) {
+        userCorrections.value = JSON.parse(savedCorrections)
+      }
+    } catch (e) {
+      console.error('Failed to load classifier corrections:', e)
     }
-  } catch (e) {
-    console.error('Failed to load classifier corrections:', e)
   }
   
   /**
@@ -305,11 +307,13 @@ export function useExpenseClassifier() {
     // Store the correction
     userCorrections.value[description.toLowerCase()] = categoryId
     
-    // Save to localStorage for persistence
-    try {
-      localStorage.setItem('expenseClassifierCorrections', JSON.stringify(userCorrections.value))
-    } catch (e) {
-      console.error('Failed to save classifier corrections:', e)
+    // Save to localStorage for persistence (only in client side)
+    if (process.client) {
+      try {
+        localStorage.setItem('expenseClassifierCorrections', JSON.stringify(userCorrections.value))
+      } catch (e) {
+        console.error('Failed to save classifier corrections:', e)
+      }
     }
   }
 

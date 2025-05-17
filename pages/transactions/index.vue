@@ -77,21 +77,66 @@
             </div>
           </div>
         </div>
-      </template>
+      </template>    </div>
+    
+    <!-- 加入浮動添加按鈕 -->
+    <div class="fixed bottom-6 right-6">
+      <button 
+        @click="router.push('/transactions/add')" 
+        class="w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+        </svg>
+      </button>
+    </div>
+    
+    <!-- 編輯交易對話框 -->
+    <TransactionModal
+      v-if="showEditModal"
+      :show="showEditModal"
+      :categories="store.categories"
+      :transaction="editingTransaction"
+      :is-editing="true"
+      @close="showEditModal = false"
+      @save="handleTransactionEdit"
+      @delete="handleTransactionDelete(editingTransaction.id)"
+    />
+    
+    <!-- 載入中指示器 -->
+    <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl p-6 shadow-lg">
+        <p class="text-gray-600">載入中...</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useTransactionStore } from '~/stores/transaction'
+import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-tw'
+import TransactionModal from '~/components/dashboard/TransactionModal.vue'
 
 dayjs.locale('zh-tw')
 
 const router = useRouter()
 const store = useTransactionStore()
+
+// 使用 Supabase 交易數據
+const { 
+  transactions: supabaseTransactions, 
+  getMonthlyStats, 
+  loading,
+  initialize: initializeSupabase 
+} = useSupabaseTransactions()
+
+// 初始化 Supabase 數據
+onMounted(async () => {
+  await initializeSupabase()
+})
 
 // 當前月份
 const currentMonth = ref(dayjs().format('YYYY-MM'))
@@ -103,7 +148,7 @@ const currentMonthDisplay = computed(() => {
 
 // 月度統計
 const monthlyStats = computed(() => {
-  return store.getMonthlyStats(currentMonth.value)
+  return getMonthlyStats(currentMonth.value)
 })
 
 // 餘額顏色
@@ -113,7 +158,7 @@ const balanceColor = computed(() => {
 
 // 按日期分組的交易記錄
 const groupedTransactions = computed(() => {
-  const transactions = store.transactions
+  const transactions = supabaseTransactions.value
     .filter(t => t.date.startsWith(currentMonth.value))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
@@ -149,12 +194,22 @@ const getCategoryIcon = (categoryId: string) => {
 }
 
 const getCategoryName = (categoryId: string) => {
-  return store.categories.find(c => c.id === categoryId)?.name || categoryId
+  // 先嘗試在 store.categories 中查找
+  const storeCategory = store.categories.find(c => c.id === categoryId)
+  if (storeCategory) return storeCategory.name
+  
+  // 如果在 store 中找不到，嘗試從 Supabase 獲取的類別中查找
+  const { categories } = useSupabaseTransactions()
+  const supabaseCategory = categories.value.find(c => c.id === categoryId)
+  if (supabaseCategory) return supabaseCategory.name
+  
+  // 如果都找不到，返回 categoryId 作為後備選項
+  return categoryId
 }
 
-const getDailyExpense = (transactions: typeof store.transactions) => {
+const getDailyExpense = (transactions: any[]) => {
   return transactions
-    .filter(t => t.type === 'expense')
+    .filter(t => t.type === 'expense' || !t.type) // 兼容沒有明確 type 的舊數據，默認為支出
     .reduce((sum, t) => sum + t.amount, 0)
 }
 
@@ -168,8 +223,36 @@ const nextMonth = () => {
 }
 
 // 編輯交易
-const editTransaction = (transaction: typeof store.transactions[0]) => {
-  // TODO: 實現編輯功能
-  console.log('Edit transaction:', transaction)
+const showEditModal = ref(false)
+const editingTransaction = ref<any>({})
+
+const editTransaction = (transaction: any) => {
+  editingTransaction.value = { ...transaction }
+  showEditModal.value = true
+}
+
+// 處理交易編輯
+const handleTransactionEdit = async (transaction: any) => {
+  try {
+    const { updateTransaction } = useSupabaseTransactions()
+    await updateTransaction(transaction.id, transaction)
+    showEditModal.value = false
+  } catch (error) {
+    console.error('更新交易失敗:', error)
+    alert('更新交易時發生錯誤，請稍後再試。')
+  }
+}
+
+// 處理交易刪除
+const handleTransactionDelete = async (id: string) => {
+  try {
+    if (confirm('確定要刪除此交易？')) {
+      const { deleteTransaction } = useSupabaseTransactions()
+      await deleteTransaction(id)
+    }
+  } catch (error) {
+    console.error('刪除交易失敗:', error)
+    alert('刪除交易時發生錯誤，請稍後再試。')
+  }
 }
 </script> 

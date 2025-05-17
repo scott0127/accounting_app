@@ -6,6 +6,9 @@ interface State {
   transactions: Transaction[]
   categories: Category[]
   initialized: boolean
+  isOnline: boolean
+  syncStatus: 'idle' | 'syncing' | 'error'
+  lastSyncTime: string | null
 }
 
 export const useTransactionStore = defineStore('transaction', {
@@ -38,10 +41,14 @@ export const useTransactionStore = defineStore('transaction', {
       { id: 'refund', name: '退款', type: 'income', icon: '↩️' },
       { id: 'other_income', name: '其他收入', type: 'income', icon: '🪙' },
     ] as Category[],
-    initialized: false
+    initialized: false,
+    isOnline: true,
+    syncStatus: 'idle',
+    lastSyncTime: null
   }),
 
   getters: {
+    // 依月份獲取統計資料
     getMonthlyStats: (state: State) => (month: string): MonthlyStats => {
       const monthTransactions = state.transactions.filter(t => t.date.startsWith(month))
       
@@ -71,13 +78,13 @@ export const useTransactionStore = defineStore('transaction', {
   },
 
   actions: {
+    // 初始化 Store
     async initialize() {
       if (this.initialized) return
 
       try {
-        console.log('Initializing store...')
+        console.log('Initializing transaction store...')
         const { value } = await Preferences.get({ key: 'transactions' })
-        console.log('Loaded transactions:', value)
         
         if (value) {
           const parsedTransactions = JSON.parse(value)
@@ -91,75 +98,77 @@ export const useTransactionStore = defineStore('transaction', {
           })
         }
       } catch (error) {
-        console.error('Error loading transactions:', error)
+        console.error('Error initializing transaction store:', error)
         this.$patch((state) => {
           state.initialized = true
         })
       }
     },
 
+    // 保存交易到本地
     async saveTransactions() {
       try {
-        console.log('Saving transactions...')
         await Preferences.set({
           key: 'transactions',
           value: JSON.stringify(this.transactions)
         })
-        console.log('Transactions saved successfully')
       } catch (error) {
-        console.error('Error saving transactions:', error)
+        console.error('Error saving transactions locally:', error)
         throw error
       }
-    },
-
-    async addTransaction(transaction: Omit<Transaction, 'id'>) {
-      try {
-        const id = Date.now().toString()
-        const newTransaction = { ...transaction, id }
-        
-        this.$patch((state) => {
-          state.transactions.push(newTransaction)
-        })
-        
+    },    // 新增交易（不需要操作 Supabase，由 useAuthenticatedTransactions 處理）
+    async addTransaction(transaction: Omit<Transaction, 'id'> & { id?: string }) {
+      const id = transaction.id || Date.now().toString()
+      const newTransaction = { ...transaction, id }
+      
+      this.$patch((state) => {
+        state.transactions.push(newTransaction)
+      })
+      
+      // 只在非 Supabase 操作時儲存到本地
+      if (!transaction.id) {
         await this.saveTransactions()
-        return newTransaction
-      } catch (error) {
-        console.error('Error adding transaction:', error)
-        throw error
       }
+      return newTransaction
     },
 
+    // 刪除交易（不需要操作 Supabase，由 useAuthenticatedTransactions 處理）
     async deleteTransaction(id: string) {
-      try {
-        const index = this.transactions.findIndex((t: Transaction) => t.id === id)
-        if (index > -1) {
-          this.$patch((state) => {
-            state.transactions.splice(index, 1)
-          })
-          await this.saveTransactions()
-        }
-      } catch (error) {
-        console.error('Error deleting transaction:', error)
-        throw error
+      const index = this.transactions.findIndex(t => t.id === id)
+      if (index > -1) {
+        this.$patch((state) => {
+          state.transactions.splice(index, 1)
+        })
+        await this.saveTransactions()
       }
     },
 
+    // 更新交易（不需要操作 Supabase，由 useAuthenticatedTransactions 處理）
     async updateTransaction(id: string, updates: Partial<Transaction>) {
-      try {
-        const transaction = this.transactions.find((t: Transaction) => t.id === id)
-        if (transaction) {
-          this.$patch((state) => {
-            const index = state.transactions.findIndex(t => t.id === id)
-            if (index > -1) {
-              state.transactions[index] = { ...transaction, ...updates }
-            }
-          })
-          await this.saveTransactions()
-        }
-      } catch (error) {
-        console.error('Error updating transaction:', error)
-        throw error
+      const transaction = this.transactions.find(t => t.id === id)
+      if (transaction) {
+        this.$patch((state) => {
+          const index = state.transactions.findIndex(t => t.id === id)
+          if (index > -1) {
+            state.transactions[index] = { ...transaction, ...updates }
+          }
+        })
+        await this.saveTransactions()
       }
+    },
+    
+    // 設置交易
+    setTransactions(transactions: Transaction[]) {
+      this.$patch((state) => {
+        state.transactions = transactions
+      })
+    },
+    
+    // 清除交易
+    clearTransactions() {
+      this.$patch((state) => {
+        state.transactions = []
+      })
     }
   }
 })

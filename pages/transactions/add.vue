@@ -295,12 +295,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useTransactionStore } from '~/stores/transaction'
 import { useExpenseClassifier } from '~/composables/useExpenseClassifier'
 import { useLLMClassifier } from '~/composables/useLLMClassifier'
+import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
 import dayjs from 'dayjs'
 
+
+const { addTransaction, categories: supabaseCategories, loading: transactionLoading, initialize } = useSupabaseTransactions()
 const router = useRouter()
 const store = useTransactionStore()
 const { classifyExpense, rememberCorrection } = useExpenseClassifier()
@@ -380,10 +383,20 @@ const classifyWithLLMApi = async () => {
 const today = computed(() => dayjs().format('YYYY-MM-DD'))
 
 const expenseCategories = computed(() => {
+  // 優先使用 Supabase 類別，如果有的話
+  if (supabaseCategories.value && supabaseCategories.value.length > 0) {
+    return supabaseCategories.value.filter(c => c.type === 'expense')
+  }
+  // 否則使用 store 的類別作為後備
   return store.categories.filter(c => c.type === 'expense')
 })
 
 const incomeCategories = computed(() => {
+  // 優先使用 Supabase 類別，如果有的話
+  if (supabaseCategories.value && supabaseCategories.value.length > 0) {
+    return supabaseCategories.value.filter(c => c.type === 'income')
+  }
+  // 否則使用 store 的類別作為後備
   return store.categories.filter(c => c.type === 'income')
 })
 
@@ -438,8 +451,15 @@ const selectCategory = (categoryId: string) => {
 
 // 獲取類別名稱
 const getCategoryName = (categoryId: string): string => {
-  const category = store.categories.find(c => c.id === categoryId)
-  return category ? category.name : categoryId
+  // 優先從 Supabase 類別中查找
+  if (supabaseCategories.value && supabaseCategories.value.length > 0) {
+    const category = supabaseCategories.value.find(c => c.id === categoryId)
+    if (category) return category.name
+  }
+  
+  // 如果在 Supabase 找不到，從 store 中查找
+  const storeCategory = store.categories.find(c => c.id === categoryId)
+  return storeCategory ? storeCategory.name : categoryId
 }
 
 // 處理 AI 記帳提交
@@ -457,11 +477,10 @@ const handleSubmitAI = async () => {
     
   try {
     // 添加交易，使用LLM生成的備註
-    await store.addTransaction({
-      id: Date.now().toString(),
+    await addTransaction({
       amount: extractedAmount.value,
       type: 'expense',
-      category: finalCategoryId,
+      category_id: finalCategoryId,  // 使用 category_id 而不是 category
       date: date.value,
       description: llmResult.value?.description || aiDescription.value
     })
@@ -476,7 +495,7 @@ const handleSubmitAI = async () => {
     router.push('/transactions')
   } catch (error) {
     console.error('Failed to add transaction:', error)
-    alert('新增記錄失敗，請稍後再試')
+    alert(`新增記錄失敗: ${error.message || '請稍後再試'}`)
   }
 }
 
@@ -485,20 +504,19 @@ const handleSubmitExpense = async () => {
   if (!isExpenseValid.value) return
 
   try {
-    await store.addTransaction({
-      id: Date.now().toString(),
+    await addTransaction({
       amount: Number(amount.value),
       type: 'expense',
-      category: selectedCategory.value,
+      category_id: selectedCategory.value, // 使用 category_id 而不是 category
       date: date.value,
-      description: note.value
+      description: note.value || ''  // 確保有預設值
     })
 
     // 成功後導航到交易列表
     router.push('/transactions')
   } catch (error) {
     console.error('Failed to add transaction:', error)
-    alert('新增記錄失敗，請稍後再試')
+    alert(`新增記錄失敗: ${error.message || '請稍後再試'}`)
   }
 }
 
@@ -507,22 +525,38 @@ const handleSubmitIncome = async () => {
   if (!isIncomeValid.value) return
 
   try {
-    await store.addTransaction({
-      id: Date.now().toString(),
+    await addTransaction({
       amount: Number(amount.value),
       type: 'income',
-      category: selectedCategory.value,
+      category_id: selectedCategory.value, // 使用 category_id 而不是 category
       date: date.value,
-      description: note.value
+      description: note.value || ''  // 確保有預設值
     })
 
     // 成功後導航到交易列表
     router.push('/transactions')
   } catch (error) {
     console.error('Failed to add transaction:', error)
-    alert('新增記錄失敗，請稍後再試')
+    alert(`新增記錄失敗: ${error.message || '請稍後再試'}`)
   }
 }
+
+onMounted(async () => {
+  try {
+    await initialize()
+    
+    // 確保類別資料已載入，否則等待 500ms 後重試
+    if (!supabaseCategories.value || supabaseCategories.value.length === 0) {
+      setTimeout(() => {
+        if (!transactionLoading.value) {
+          initialize().catch(err => console.error('重新初始化失敗:', err))
+        }
+      }, 500)
+    }
+  } catch (error) {
+    console.error('初始化交易服務失敗:', error)
+  }
+})
 </script>
 
 <style scoped>

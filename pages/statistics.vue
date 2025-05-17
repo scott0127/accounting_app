@@ -97,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useTransactionStore } from '~/stores/transaction'
 import dayjs from 'dayjs'
 import {
@@ -115,6 +115,8 @@ import {
 import { Bar } from 'vue-chartjs'
 import { Line } from 'vue-chartjs'
 import { Doughnut as DoughnutChart } from 'vue-chartjs'
+import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
+import { useSupabaseAuth } from '~/composables/useSupabaseAuth'
 
 // 註冊 Chart.js 組件
 ChartJS.register(
@@ -130,18 +132,32 @@ ChartJS.register(
 )
 
 const store = useTransactionStore()
+const { user } = useSupabaseAuth()
+const { 
+  transactions, 
+  initialize: initializeSupabase,
+  loading: transactionsLoading,
+  getMonthlyStats
+} = useSupabaseTransactions()
 
 // 當前月份
 const currentMonth = ref(dayjs().format('YYYY-MM'))
+
+// 初始化資料
+onMounted(async () => {
+  if (user.value) {
+    await initializeSupabase()
+  }
+})
 
 // 月份顯示
 const currentMonthDisplay = computed(() => {
   return dayjs(currentMonth.value).format('YYYY年M月')
 })
 
-// 月度統計
+// 月度統計 - 使用 Supabase 數據
 const monthlyStats = computed(() => {
-  return store.getMonthlyStats(currentMonth.value)
+  return getMonthlyStats(currentMonth.value)
 })
 
 // 收支趨勢圖
@@ -169,7 +185,6 @@ const lineChartData = computed(() => {
       }]
     }
   }
-
   // 获取最近6个月的数据
   const months = []
   const incomeData = []
@@ -179,7 +194,7 @@ const lineChartData = computed(() => {
   for (let i = 5; i >= 0; i--) {
     const monthDate = dayjs(currentMonth.value).subtract(i, 'month')
     const monthKey = monthDate.format('YYYY-MM')
-    const stats = store.getMonthlyStats(monthKey)
+    const stats = getMonthlyStats(monthKey)
     
     months.push(monthDate.format('M月'))
     incomeData.push(stats.totalIncome)
@@ -237,6 +252,7 @@ const expenseCategories = computed(() => {
   return store.categories
     .filter(c => c.type === 'expense')
     .map(category => {
+      // 使用 id 或名稱來查找類別金額
       const amount = monthlyStats.value.categories[category.id] || 0
       return {
         ...category,
@@ -256,6 +272,7 @@ const incomeCategories = computed(() => {
   return store.categories
     .filter(c => c.type === 'income')
     .map(category => {
+      // 使用 id 或名稱來查找類別金額
       const amount = monthlyStats.value.categories[category.id] || 0
       return {
         ...category,

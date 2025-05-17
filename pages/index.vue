@@ -1,538 +1,628 @@
 <template>
-  <div class="p-4">
-    <!-- 財務健康指標 -->
-    <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-base font-semibold mb-1">本月財務健康度</h2>
-          <div :class="financialHealthClass" class="inline-block px-3 py-1 rounded-full text-sm font-medium">
-            {{ financialHealthStatus }}
-          </div>
-          <p class="text-sm text-gray-500 mt-2">{{ financialAdvice }}</p>
-        </div>
-        <div class="text-3xl">{{ financialHealthEmoji }}</div>
+  <div class="p-4">    <!-- 導覽列登入/登出按鈕 -->
+    <div class="flex items-center justify-between px-4 h-14">
+        <h1 class="text-lg font-bold">簡單記帳</h1>
       </div>
+    <div class="flex justify-end mb-4">
+      <template v-if="user">
+        <div class="flex items-center bg-white rounded-full shadow-md px-3 py-1.5 border border-gray-100 transition-all hover:shadow-lg">
+          <div class="flex items-center">
+            <div class="w-6 h-6 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-xs font-bold mr-2">
+              {{ user.email?.charAt(0).toUpperCase() }}
+            </div>
+            <span class="text-xs text-gray-600 mr-2 hidden sm:inline-block">{{ user.email }}</span>
+          </div>
+          <button 
+            class="px-3 py-1 rounded-full bg-gradient-to-r from-red-400 to-pink-500 text-white text-xs font-medium shadow hover:shadow-md transition transform hover:-translate-y-0.5" 
+            @click="handleLogout">
+            <span class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" />
+              </svg>
+              登出
+            </span>
+          </button>
+        </div>
+      </template>
+      <template v-else>
+        <button 
+          class="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5 flex items-center" 
+          @click="router.push('/auth')">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 005 10a6 6 0 0012 0z" clip-rule="evenodd" />
+          </svg>
+          登入
+        </button>
+      </template>
     </div>
     
-    <!-- 月份選擇器 -->
-    <div class="flex items-center justify-between mb-6">
-      <button class="p-2" @click="previousMonth">
-        <span class="text-xl">←</span>
-      </button>
-      <div class="flex items-center">
-        <h2 class="text-lg font-semibold">{{ currentMonthDisplay }}</h2>
+    <!-- 未登入狀態 -->
+    <template v-if="!user">
+      <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
+        <div class="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 005 10a6 6 0 0012 0z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold mb-2">歡迎使用簡單記帳</h2>
+        <p class="text-gray-600 mb-8">請登入以管理您的財務、追蹤收支和獲取財務洞察</p>
         <button 
-          class="ml-2 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-          @click="goToCurrentMonth">
-          今天
+          class="px-6 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium shadow-lg hover:shadow-xl transition transform hover:-translate-y-1" 
+          @click="router.push('/auth')">
+          註冊或登入帳號
+        </button>
+        <div class="mt-8 p-4 bg-blue-50 rounded-lg max-w-md">
+          <h3 class="text-lg font-semibold mb-2">應用功能</h3>
+          <ul class="text-left space-y-2">
+            <li class="flex items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>追蹤日常收入與支出</span>
+            </li>
+            <li class="flex items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>設定預算並監控消費習慣</span>
+            </li>
+            <li class="flex items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>取得個人財務健康分析</span>
+            </li>
+            <li class="flex items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>雲端資料同步，隨時隨地可存取</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </template>
+
+    <!-- 已登入狀態 -->
+    <template v-if="user">
+      <!-- 財務健康指標 -->
+      <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-semibold mb-1">本月財務健康度</h2>
+            <div :class="financialHealthClass" class="inline-block px-3 py-1 rounded-full text-sm font-medium">
+              {{ financialHealthStatus }}
+            </div>
+            <p class="text-sm text-gray-500 mt-2">{{ financialAdvice }}</p>
+          </div>
+          <div class="text-3xl">{{ financialHealthEmoji }}</div>
+        </div>
+      </div>
+      
+      <!-- 月份選擇器 -->
+      <div class="flex items-center justify-between mb-6">
+        <button class="p-2" @click="previousMonth">
+          <span class="text-xl">←</span>
+        </button>
+        <div class="flex items-center">
+          <h2 class="text-lg font-semibold">{{ currentMonthDisplay }}</h2>
+          <button 
+            class="ml-2 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            @click="goToCurrentMonth">
+            今天
+          </button>
+        </div>
+        <button class="p-2" @click="nextMonth">
+          <span class="text-xl">→</span>
         </button>
       </div>
-      <button class="p-2" @click="nextMonth">
-        <span class="text-xl">→</span>
-      </button>
-    </div>
 
-    <!-- 四個卡片的網格布局 -->
-    <div class="grid grid-cols-2 gap-4 mb-6">
-      <!-- 支出分析 -->
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-base font-semibold">支出分析</h3>
-          <button 
-            @click="showDetailedExpenseChart = true" 
-            class="text-xs text-blue-500 hover:underline">
-            查看詳情
-          </button>
-        </div>
-        <div class="h-48">
-          <template v-if="expenseChartData">
-            <DoughnutChart
-              :data="expenseChartData"
-              :options="doughnutOptions"
-            />
-            <!-- 顯示前三大類別 -->
-            <div v-if="topExpenseCategories.length" class="mt-2 text-xs">
-              <div v-for="(category, index) in topExpenseCategories" :key="index" 
-                 class="flex justify-between items-center">
-                <div class="flex items-center">
-                  <div class="w-2 h-2 rounded-full mr-1" 
-                       :style="{ backgroundColor: chartColors[index % chartColors.length] }"></div>
-                  <span>{{ category.name }}</span>
-                </div>
-                <span>{{ formatAmount(category.amount) }}</span>
-              </div>
-            </div>
-          </template>
-          <div v-else class="h-full flex items-center justify-center text-gray-400">
-            無支出資料
+      <!-- 四個卡片的網格布局 -->
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <!-- 支出分析 -->
+        <div class="bg-white rounded-xl shadow-sm p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-base font-semibold">支出分析</h3>
+            <button 
+              @click="showDetailedExpenseChart = true" 
+              class="text-xs text-blue-500 hover:underline">
+              查看詳情
+            </button>
           </div>
-        </div>
-        <p class="text-center mt-2 text-sm font-medium text-red-500">
-          {{ formatAmount(monthlyStats.totalExpense) }}
-        </p>
-      </div>
-
-      <!-- 收入分析 -->
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-base font-semibold">收入分析</h3>
-          <button 
-            @click="showDetailedIncomeChart = true" 
-            class="text-xs text-blue-500 hover:underline">
-            查看詳情
-          </button>
-        </div>
-        <div class="h-48">
-          <template v-if="incomeChartData">
-            <DoughnutChart
-              :data="incomeChartData"
-              :options="doughnutOptions"
-            />
-            <!-- 顯示前三大類別 -->
-            <div v-if="topIncomeCategories.length" class="mt-2 text-xs">
-              <div v-for="(category, index) in topIncomeCategories" :key="index" 
-                 class="flex justify-between items-center">
-                <div class="flex items-center">
-                  <div class="w-2 h-2 rounded-full mr-1" 
-                       :style="{ backgroundColor: incomeChartColors[index % incomeChartColors.length] }"></div>
-                  <span>{{ category.name }}</span>
+          <div class="h-48">
+            <template v-if="expenseChartData">
+              <DoughnutChart
+                :data="expenseChartData"
+                :options="doughnutOptions"
+              />
+              <!-- 顯示前三大類別 -->
+              <div v-if="topExpenseCategories.length" class="mt-2 text-xs">
+                <div v-for="(category, index) in topExpenseCategories" :key="index" 
+                  class="flex justify-between items-center">
+                  <div class="flex items-center">
+                    <div class="w-2 h-2 rounded-full mr-1" 
+                        :style="{ backgroundColor: chartColors[index % chartColors.length] }"></div>
+                    <span>{{ category.name }}</span>
+                  </div>
+                  <span>{{ formatAmount(category.amount) }}</span>
                 </div>
-                <span>{{ formatAmount(category.amount) }}</span>
               </div>
+            </template>
+            <div v-else class="h-full flex items-center justify-center text-gray-400">
+              無支出資料
             </div>
-          </template>
-          <div v-else class="h-full flex items-center justify-center text-gray-400">
-            無收入資料
           </div>
-        </div>
-        <p class="text-center mt-2 text-sm font-medium text-green-500">
-          {{ formatAmount(monthlyStats.totalIncome) }}
-        </p>
-      </div>
-
-      <!-- 當月盈虧 -->
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <h3 class="text-base font-semibold mb-2">當月盈虧</h3>
-        <div class="flex flex-col items-center justify-center h-48">
-          <p class="text-2xl font-bold" :class="balanceColor">
-            {{ monthlyStats.balance >= 0 ? '+' : '' }}{{ formatAmount(monthlyStats.balance) }}
-          </p>
-          <p class="text-sm text-gray-500 mt-2">
-            {{ monthlyStats.balance >= 0 ? '本月有結餘' : '本月超支' }}
+          <p class="text-center mt-2 text-sm font-medium text-red-500">
+            {{ formatAmount(monthlyStats.totalExpense) }}
           </p>
         </div>
-      </div>
 
-      <!-- 剩餘預算 -->
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <h3 class="text-base font-semibold mb-3">剩餘預算</h3>
-        <div class="flex flex-col items-center h-auto relative pb-4">
-          <!-- 綜合預算顯示 -->
-          <div class="relative w-40 h-40 flex items-center justify-center mb-2">
-            <!-- 百分比環形進度 -->
-            <svg class="absolute inset-0 w-full h-full transform -rotate-90">
-              <circle
-                cx="80"
-                cy="80"
-                r="70"
-                stroke="rgba(229, 231, 235, 0.5)"
-                stroke-width="8"
-                fill="none"
+        <!-- 收入分析 -->
+        <div class="bg-white rounded-xl shadow-sm p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-base font-semibold">收入分析</h3>
+            <button 
+              @click="showDetailedIncomeChart = true" 
+              class="text-xs text-blue-500 hover:underline">
+              查看詳情
+            </button>
+          </div>
+          <div class="h-48">
+            <template v-if="incomeChartData">
+              <DoughnutChart
+                :data="incomeChartData"
+                :options="doughnutOptions"
               />
-              <circle
-                cx="80"
-                cy="80"
-                r="70"
-                :stroke="budgetCircleColor"
-                stroke-width="8"
-                stroke-linecap="round"
-                fill="none"
-                :stroke-dasharray="getBudgetCircleValue()"
-                class="budget-circle-animation"
-              />
-            </svg>
-            
-            <!-- 玻璃容器 -->
-            <div class="container-shape relative z-10">
-              <div class="container-inner">
-                <!-- 刻度線 -->
-                <div class="measurement-lines">
-                  <template v-for="i in 5" :key="i">
-                    <div class="measurement-line" :style="{ opacity: (i/5) }">
-                      <span class="measurement-text">{{ (100 - i * 20) }}%</span>
+              <!-- 顯示前三大類別 -->
+              <div v-if="topIncomeCategories.length" class="mt-2 text-xs">
+                <div v-for="(category, index) in topIncomeCategories" :key="index" 
+                  class="flex justify-between items-center">
+                  <div class="flex items-center">
+                    <div class="w-2 h-2 rounded-full mr-1" 
+                        :style="{ backgroundColor: incomeChartColors[index % incomeChartColors.length] }"></div>
+                    <span>{{ category.name }}</span>
+                  </div>
+                  <span>{{ formatAmount(category.amount) }}</span>
+                </div>
+              </div>
+            </template>
+            <div v-else class="h-full flex items-center justify-center text-gray-400">
+              無收入資料
+            </div>
+          </div>
+          <p class="text-center mt-2 text-sm font-medium text-green-500">
+            {{ formatAmount(monthlyStats.totalIncome) }}
+          </p>
+        </div>
+
+        <!-- 當月盈虧 -->
+        <div class="bg-white rounded-xl shadow-sm p-4">
+          <h3 class="text-base font-semibold mb-2">當月盈虧</h3>
+          <div class="flex flex-col items-center justify-center h-48">
+            <p class="text-2xl font-bold" :class="balanceColor">
+              {{ monthlyStats.balance >= 0 ? '+' : '' }}{{ formatAmount(monthlyStats.balance) }}
+            </p>
+            <p class="text-sm text-gray-500 mt-2">
+              {{ monthlyStats.balance >= 0 ? '本月有結餘' : '本月超支' }}
+            </p>
+          </div>
+        </div>
+
+        <!-- 剩餘預算 -->
+        <div class="bg-white rounded-xl shadow-sm p-4">
+          <h3 class="text-base font-semibold mb-3">剩餘預算</h3>
+          <div class="flex flex-col items-center h-auto relative pb-4">
+            <!-- 綜合預算顯示 -->
+            <div class="relative w-40 h-40 flex items-center justify-center mb-2">
+              <!-- 百分比環形進度 -->
+              <svg class="absolute inset-0 w-full h-full transform -rotate-90">
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="70"
+                  stroke="rgba(229, 231, 235, 0.5)"
+                  stroke-width="8"
+                  fill="none"
+                />
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="70"
+                  :stroke="budgetCircleColor"
+                  stroke-width="8"
+                  stroke-linecap="round"
+                  fill="none"
+                  :stroke-dasharray="getBudgetCircleValue()"
+                  class="budget-circle-animation"
+                />
+              </svg>
+              
+              <!-- 玻璃容器 -->
+              <div class="container-shape relative z-10">
+                <div class="container-inner">
+                  <!-- 刻度線 -->
+                  <div class="measurement-lines">
+                    <template v-for="i in 5" :key="i">
+                      <div class="measurement-line" :style="{ opacity: (i/5) }">
+                        <span class="measurement-text">{{ (100 - i * 20) }}%</span>
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- 水滴效果 -->
+                  <div class="droplet" style="left: 30%; top: 20%"></div>
+                  <div class="droplet" style="left: 50%; top: 15%; animation-delay: 0.5s"></div>
+                  <div class="droplet" style="left: 70%; top: 25%; animation-delay: 1s"></div>
+
+                  <!-- 水體效果 -->
+                  <div class="water-body"
+                    :style="{ 
+                      height: getBudgetPercentageHeight(),
+                      transition: 'all 1s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }">
+                    <div class="wave wave-back"></div>
+                    <div class="wave wave-front"></div>
+                  </div>
+                  
+                  <!-- 懸浮金額顯示 -->
+                  <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <div class="budget-display p-2 rounded-lg backdrop-blur">
+                      <span class="text-md font-bold" :class="budgetTextColor">
+                        {{ formatAmount(remainingBudget) }}
+                      </span>
                     </div>
-                  </template>
-                </div>
-
-                <!-- 水滴效果 -->
-                <div class="droplet" style="left: 30%; top: 20%"></div>
-                <div class="droplet" style="left: 50%; top: 15%; animation-delay: 0.5s"></div>
-                <div class="droplet" style="left: 70%; top: 25%; animation-delay: 1s"></div>
-
-                <!-- 水體效果 -->
-                <div class="water-body"
-                  :style="{ 
-                    height: getBudgetPercentageHeight(),
-                    transition: 'all 1s cubic-bezier(0.4, 0, 0.2, 1)'
-                  }">
-                  <div class="wave wave-back"></div>
-                  <div class="wave wave-front"></div>
-                </div>
-                
-                <!-- 懸浮金額顯示 -->
-                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <div class="budget-display p-2 rounded-lg backdrop-blur">
-                    <span class="text-md font-bold" :class="budgetTextColor">
-                      {{ formatAmount(remainingBudget) }}
-                    </span>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- 預算狀態與設定 -->
-          <div class="mt-2 text-center w-full z-20 relative">
-            <div class="p-2 rounded-lg mb-2" :class="budgetStatusBackground">
-              <p class="text-xs font-medium" :class="budgetTextColor">
-                {{ getBudgetStatus() }}
-              </p>
+            <!-- 預算狀態與設定 -->
+            <div class="mt-2 text-center w-full z-20 relative">
+              <div class="p-2 rounded-lg mb-2" :class="budgetStatusBackground">
+                <p class="text-xs font-medium" :class="budgetTextColor">
+                  {{ getBudgetStatus() }}
+                </p>
+              </div>
+              
+              <button 
+                @click="showBudgetModal = true"
+                class="w-full px-3 py-1.5 text-xs bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                設定預算
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 最近交易記錄 -->
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-base font-semibold">最近記錄</h3>
+          <button 
+            class="text-xs text-blue-500 hover:underline"
+            @click="showAllTransactions = !showAllTransactions">
+            {{ showAllTransactions ? '收起' : '展開' }}
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div
+            v-for="transaction in displayTransactions"
+            :key="transaction.id"
+            class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+          >
+            <div class="flex items-center">
+              <span class="text-xl mr-3">{{ getCategoryIcon(transaction.category) }}</span>
+              <div>
+                <p class="font-medium">{{ getCategoryName(transaction.category) }}</p>
+                <p class="text-xs text-gray-500">{{ formatDate(transaction.date) }}</p>
+              </div>
+            </div>
+            <div class="flex items-center">
+              <span
+                class="font-semibold mr-3"
+                :class="transaction.type === 'income' ? 'text-green-500' : 'text-red-500'"
+              >
+                {{ transaction.type === 'income' ? '+' : '-' }}{{ formatAmount(transaction.amount) }}
+              </span>
+              <div class="flex space-x-1">
+                <button @click="editTransaction(transaction)" 
+                  class="text-gray-400 hover:text-gray-600 p-1">
+                  ✎
+                </button>
+                <button @click="duplicateTransaction(transaction)"
+                  class="text-gray-400 hover:text-gray-600 p-1">
+                  ⧉
+                </button>
+                <button @click="handleTransactionDelete(transaction.id)" 
+                  class="text-gray-400 hover:text-gray-600 p-1">
+                  🗑
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 浮動按鈕 -->
+      <button 
+        @click="router.push('/transactions/add')"
+        class="fixed right-6 bottom-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center text-2xl"
+      >
+        +
+      </button>
+
+      <!-- 異常支出提醒 -->
+      <div 
+        v-if="unusualExpenses.length > 0"
+        class="fixed left-6 bottom-6 p-3 bg-yellow-100 border border-yellow-200 rounded-lg shadow-md max-w-xs"
+      >
+        <div class="flex items-center">
+          <div class="mr-2 text-yellow-500 text-lg">⚠️</div>
+          <div>
+            <p class="font-medium text-sm text-yellow-800">本月異常支出</p>
+            <p class="text-xs text-yellow-700">
+              {{ unusualExpenses[0].name }} 支出比平常高出 {{ unusualExpenses[0].percentage.toFixed(0) }}%
+            </p>
+          </div>
+          <button @click="unusualExpenses = []" class="ml-2 text-gray-500">✕</button>
+        </div>
+      </div>
+      
+      <!-- 新手引導教學 -->
+      <div v-if="showTutorial" class="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl max-w-sm w-full p-6 relative">
+          <button 
+            @click="showTutorial = false"
+            class="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
+          
+          <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-2">{{ tutorialSteps[tutorialStep].title }}</h3>
+            <p class="text-gray-600">{{ tutorialSteps[tutorialStep].description }}</p>
+          </div>
+          
+          <div class="flex justify-between">
+            <button
+              v-if="tutorialStep > 0"
+              @click="tutorialStep--"
+              class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              上一步
+            </button>
+            <div v-else class="w-16"></div>
+            
+            <div class="flex space-x-1">
+              <template v-for="(_, index) in tutorialSteps" :key="index">
+                <div
+                  class="w-2 h-2 rounded-full" 
+                  :class="index === tutorialStep ? 'bg-blue-500' : 'bg-gray-300'"
+                ></div>
+              </template>
             </div>
             
-            <button 
-              @click="showBudgetModal = true"
-              class="w-full px-3 py-1.5 text-xs bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center"
+            <button
+              @click="nextTutorialStep"
+              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              設定預算
+              {{ tutorialStep === tutorialSteps.length - 1 ? '完成' : '下一步' }}
             </button>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 最近交易記錄 -->
-    <div class="bg-white rounded-xl shadow-sm p-4">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-semibold">最近記錄</h3>
-        <button 
-          class="text-xs text-blue-500 hover:underline"
-          @click="showAllTransactions = !showAllTransactions">
-          {{ showAllTransactions ? '收起' : '展開' }}
-        </button>
-      </div>
-      <div class="space-y-4">
-        <div
-          v-for="transaction in displayTransactions"
-          :key="transaction.id"
-          class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-        >
-          <div class="flex items-center">
-            <span class="text-xl mr-3">{{ getCategoryIcon(transaction.category) }}</span>
-            <div>
-              <p class="font-medium">{{ getCategoryName(transaction.category) }}</p>
-              <p class="text-xs text-gray-500">{{ formatDate(transaction.date) }}</p>
-            </div>
-          </div>
-          <div class="flex items-center">
-            <span
-              class="font-semibold mr-3"
-              :class="transaction.type === 'income' ? 'text-green-500' : 'text-red-500'"
+      <!-- 財務目標設定對話框 -->
+      <div
+        v-if="showFinancialGoalModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        @click.self="showFinancialGoalModal = false"
+      >
+        <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm">
+          <h3 class="text-lg font-semibold mb-4">設定財務目標</h3>
+          
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-1">目標類型</label>
+            <select 
+              v-model="goalType" 
+              class="w-full px-4 py-2 border border-gray-200 rounded-lg"
             >
-              {{ transaction.type === 'income' ? '+' : '-' }}{{ formatAmount(transaction.amount) }}
-            </span>
-            <div class="flex space-x-1">
-              <button @click="editTransaction(transaction)" 
-                class="text-gray-400 hover:text-gray-600 p-1">
-                ✎
-              </button>
-              <button @click="duplicateTransaction(transaction)"
-                class="text-gray-400 hover:text-gray-600 p-1">
-                ⧉
-              </button>
-            </div>
+              <option value="savings">每月儲蓄</option>
+              <option value="expense">消費限制</option>
+              <option value="income">收入目標</option>
+            </select>
+          </div>
+          
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-1">目標金額</label>
+            <input
+              v-model="goalAmount"
+              type="number"
+              class="w-full px-4 py-2 border border-gray-200 rounded-lg"
+              placeholder="請輸入金額"
+              min="0"
+            />
+          </div>
+          
+          <div class="mb-6">
+            <label class="block text-sm font-medium mb-1">目標期限</label>
+            <select 
+              v-model="goalDeadline" 
+              class="w-full px-4 py-2 border border-gray-200 rounded-lg"
+            >
+              <option value="1">1個月</option>
+              <option value="3">3個月</option>
+              <option value="6">6個月</option>
+              <option value="12">12個月</option>
+            </select>
+          </div>
+          
+          <div class="flex justify-end space-x-2">
+            <button
+              class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              @click="showFinancialGoalModal = false"
+            >
+              取消
+            </button>
+            <button
+              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              @click="saveFinancialGoal"
+            >
+              設定目標
+            </button>
           </div>
         </div>
       </div>
-    </div>
+      
+      <!-- 編輯交易對話框 -->
+      <TransactionModal
+        v-if="showEditTransactionModal"
+        :show="showEditTransactionModal"
+        :categories="store.categories"
+        :transaction="editingTransaction"
+        :is-editing="true"
+        @close="showEditTransactionModal = false"
+        @save="handleTransactionEdit"
+      />
+      
+      <!-- 添加交易對話框 -->
+      <TransactionModal
+        v-if="showAddTransactionModal"
+        :show="showAddTransactionModal"
+        :categories="store.categories"
+        @close="showAddTransactionModal = false"
+        @save="handleTransactionSave"
+      />
 
-    <!-- 浮動按鈕 -->
-    <button 
-      @click="router.push('/transactions/add')"
-      class="fixed right-6 bottom-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center text-2xl"
-    >
-      +
-    </button>
-
-    <!-- 異常支出提醒 -->
-    <div 
-      v-if="unusualExpenses.length > 0"
-      class="fixed left-6 bottom-6 p-3 bg-yellow-100 border border-yellow-200 rounded-lg shadow-md max-w-xs"
-    >
-      <div class="flex items-center">
-        <div class="mr-2 text-yellow-500 text-lg">⚠️</div>
-        <div>
-          <p class="font-medium text-sm text-yellow-800">本月異常支出</p>
-          <p class="text-xs text-yellow-700">
-            {{ unusualExpenses[0].name }} 支出比平常高出 {{ unusualExpenses[0].percentage.toFixed(0) }}%
-          </p>
-        </div>
-        <button @click="unusualExpenses = []" class="ml-2 text-gray-500">✕</button>
-      </div>
-    </div>
-    
-    <!-- 新手引導教學 -->
-    <div v-if="showTutorial" class="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center">
-      <div class="bg-white rounded-xl max-w-sm w-full p-6 relative">
-        <button 
-          @click="showTutorial = false"
-          class="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-        >
-          ✕
-        </button>
-        
-        <div class="mb-6">
-          <h3 class="text-lg font-semibold mb-2">{{ tutorialSteps[tutorialStep].title }}</h3>
-          <p class="text-gray-600">{{ tutorialSteps[tutorialStep].description }}</p>
-        </div>
-        
-        <div class="flex justify-between">
-          <button
-            v-if="tutorialStep > 0"
-            @click="tutorialStep--"
-            class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-          >
-            上一步
-          </button>
-          <div v-else class="w-16"></div>
-          
-          <div class="flex space-x-1">
-            <template v-for="(_, index) in tutorialSteps" :key="index">
-              <div
-                class="w-2 h-2 rounded-full" 
-                :class="index === tutorialStep ? 'bg-blue-500' : 'bg-gray-300'"
-              ></div>
-            </template>
-          </div>
-          
-          <button
-            @click="nextTutorialStep"
-            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            {{ tutorialStep === tutorialSteps.length - 1 ? '完成' : '下一步' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 財務目標設定對話框 -->
-    <div
-      v-if="showFinancialGoalModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      @click.self="showFinancialGoalModal = false"
-    >
-      <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm">
-        <h3 class="text-lg font-semibold mb-4">設定財務目標</h3>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium mb-1">目標類型</label>
-          <select 
-            v-model="goalType" 
-            class="w-full px-4 py-2 border border-gray-200 rounded-lg"
-          >
-            <option value="savings">每月儲蓄</option>
-            <option value="expense">消費限制</option>
-            <option value="income">收入目標</option>
-          </select>
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium mb-1">目標金額</label>
+      <!-- 預算設定對話框 -->
+      <div
+        v-if="showBudgetModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        @click.self="showBudgetModal = false"
+      >
+        <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm">
+          <h3 class="text-lg font-semibold mb-4">設定每月預算</h3>
           <input
-            v-model="goalAmount"
+            v-model="budgetInput"
             type="number"
-            class="w-full px-4 py-2 border border-gray-200 rounded-lg"
-            placeholder="請輸入金額"
+            class="w-full px-4 py-2 border border-gray-200 rounded-lg mb-4"
+            placeholder="請輸入預算金額"
             min="0"
           />
-        </div>
-        
-        <div class="mb-6">
-          <label class="block text-sm font-medium mb-1">目標期限</label>
-          <select 
-            v-model="goalDeadline" 
-            class="w-full px-4 py-2 border border-gray-200 rounded-lg"
-          >
-            <option value="1">1個月</option>
-            <option value="3">3個月</option>
-            <option value="6">6個月</option>
-            <option value="12">12個月</option>
-          </select>
-        </div>
-        
-        <div class="flex justify-end space-x-2">
-          <button
-            class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-            @click="showFinancialGoalModal = false"
-          >
-            取消
-          </button>
-          <button
-            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            @click="saveFinancialGoal"
-          >
-            設定目標
-          </button>
-        </div>
-      </div>
-    </div>
-    
-    <!-- 編輯交易對話框 -->
-    <TransactionModal
-      v-if="showEditTransactionModal"
-      :show="showEditTransactionModal"
-      :categories="store.categories"
-      :transaction="editingTransaction"
-      :is-editing="true"
-      @close="showEditTransactionModal = false"
-      @save="handleTransactionEdit"
-    />
-    
-    <!-- 添加交易對話框 -->
-    <TransactionModal
-      v-if="showAddTransactionModal"
-      :show="showAddTransactionModal"
-      :categories="store.categories"
-      @close="showAddTransactionModal = false"
-      @save="handleTransactionSave"
-    />
-
-    <!-- 預算設定對話框 -->
-    <div
-      v-if="showBudgetModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      @click.self="showBudgetModal = false"
-    >
-      <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm">
-        <h3 class="text-lg font-semibold mb-4">設定每月預算</h3>
-        <input
-          v-model="budgetInput"
-          type="number"
-          class="w-full px-4 py-2 border border-gray-200 rounded-lg mb-4"
-          placeholder="請輸入預算金額"
-          min="0"
-        />
-        
-        <!-- 智能預算建議 -->
-        <div v-if="smartBudgetRecommendation" class="mb-4 p-3 bg-blue-50 rounded-lg">
-          <p class="text-sm text-blue-700">
-            <span class="font-medium">智能建議：</span> 
-            根據您過去3個月的支出，建議本月預算為 {{ formatAmount(smartBudgetRecommendation) }}
-          </p>
-          <button 
-            @click="useSuggestedBudget"
-            class="mt-2 text-xs text-blue-600 hover:underline"
-          >
-            使用此建議
-          </button>
-        </div>
-        
-        <div class="flex justify-end space-x-2">
-          <button
-            class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-            @click="showBudgetModal = false"
-          >
-            取消
-          </button>
-          <button
-            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            @click="saveBudget"
-          >
-            確定
-          </button>
+          
+          <!-- 智能預算建議 -->
+          <div v-if="smartBudgetRecommendation" class="mb-4 p-3 bg-blue-50 rounded-lg">
+            <p class="text-sm text-blue-700">
+              <span class="font-medium">智能建議：</span> 
+              根據您過去3個月的支出，建議本月預算為 {{ formatAmount(smartBudgetRecommendation) }}
+            </p>
+            <button 
+              @click="useSuggestedBudget"
+              class="mt-2 text-xs text-blue-600 hover:underline"
+            >
+              使用此建議
+            </button>
+          </div>
+          
+          <div class="flex justify-end space-x-2">
+            <button
+              class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              @click="showBudgetModal = false"
+            >
+              取消
+            </button>
+            <button
+              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              @click="saveBudget"
+            >
+              確定
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- 詳細支出圖表彈窗 -->
-    <div
-      v-if="showDetailedExpenseChart"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      @click.self="showDetailedExpenseChart = false"
-    >
-      <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold">詳細支出分析</h3>
-          <button 
-            @click="showDetailedExpenseChart = false"
-            class="text-gray-500 hover:bg-gray-100 p-1 rounded-full"
-          >
-            ✕
-          </button>
-        </div>
-        <div class="h-64">
-          <DoughnutChart
-            :data="expenseChartData"
-            :options="detailedChartOptions"
-          />
-        </div>
-        <div class="mt-4">
-          <div v-for="(category, index) in expenseCategories" :key="index"
-               class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-            <div class="flex items-center">
-              <div class="w-3 h-3 rounded-full mr-2" 
-                   :style="{ backgroundColor: chartColors[index % chartColors.length] }"></div>
-              <span>{{ category.name }}</span>
-            </div>
-            <div>
-              <span class="mr-2">{{ formatAmount(category.amount) }}</span>
-              <span class="text-xs text-gray-500">{{ calculatePercentage(category.amount, monthlyStats.totalExpense) }}%</span>
+      <!-- 詳細支出圖表彈窗 -->
+      <div
+        v-if="showDetailedExpenseChart"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        @click.self="showDetailedExpenseChart = false"
+      >
+        <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-auto">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">詳細支出分析</h3>
+            <button 
+              @click="showDetailedExpenseChart = false"
+              class="text-gray-500 hover:bg-gray-100 p-1 rounded-full"
+            >
+              ✕
+            </button>
+          </div>
+          <div class="h-64">
+            <DoughnutChart
+              :data="expenseChartData"
+              :options="detailedChartOptions"
+            />
+          </div>
+          <div class="mt-4">
+            <div v-for="(category, index) in expenseCategories" :key="index"
+                class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+              <div class="flex items-center">
+                <div class="w-3 h-3 rounded-full mr-2" 
+                    :style="{ backgroundColor: chartColors[index % chartColors.length] }"></div>
+                <span>{{ category.name }}</span>
+              </div>
+              <div>
+                <span class="mr-2">{{ formatAmount(category.amount) }}</span>
+                <span class="text-xs text-gray-500">{{ calculatePercentage(category.amount, monthlyStats.totalExpense) }}%</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 詳細收入圖表彈窗 -->
-    <div
-      v-if="showDetailedIncomeChart"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      @click.self="showDetailedIncomeChart = false"
-    >
-      <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold">詳細收入分析</h3>
-          <button 
-            @click="showDetailedIncomeChart = false"
-            class="text-gray-500 hover:bg-gray-100 p-1 rounded-full"
-          >
-            ✕
-          </button>
-        </div>
-        <div class="h-64">
-          <DoughnutChart
-            :data="incomeChartData"
-            :options="detailedChartOptions"
-          />
-        </div>
-        <div class="mt-4">
-          <div v-for="(category, index) in incomeCategories" :key="index"
-               class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-            <div class="flex items-center">
-              <div class="w-3 h-3 rounded-full mr-2" 
-                   :style="{ backgroundColor: incomeChartColors[index % incomeChartColors.length] }"></div>
-              <span>{{ category.name }}</span>
-            </div>
-            <div>
-              <span class="mr-2">{{ formatAmount(category.amount) }}</span>
-              <span class="text-xs text-gray-500">{{ calculatePercentage(category.amount, monthlyStats.totalIncome) }}%</span>
+      <!-- 詳細收入圖表彈窗 -->
+      <div
+        v-if="showDetailedIncomeChart"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        @click.self="showDetailedIncomeChart = false"
+      >
+        <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-auto">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">詳細收入分析</h3>
+            <button 
+              @click="showDetailedIncomeChart = false"
+              class="text-gray-500 hover:bg-gray-100 p-1 rounded-full"
+            >
+              ✕
+            </button>
+          </div>
+          <div class="h-64">
+            <DoughnutChart
+              :data="incomeChartData"
+              :options="detailedChartOptions"
+            />
+          </div>
+          <div class="mt-4">
+            <div v-for="(category, index) in incomeCategories" :key="index"
+                class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+              <div class="flex items-center">
+                <div class="w-3 h-3 rounded-full mr-2" 
+                    :style="{ backgroundColor: incomeChartColors[index % incomeChartColors.length] }"></div>
+                <span>{{ category.name }}</span>
+              </div>
+              <div>
+                <span class="mr-2">{{ formatAmount(category.amount) }}</span>
+                <span class="text-xs text-gray-500">{{ calculatePercentage(category.amount, monthlyStats.totalIncome) }}%</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -545,17 +635,40 @@ import dayjs from 'dayjs'
 import { Preferences } from '@capacitor/preferences'
 import TransactionModal from '~/components/dashboard/TransactionModal.vue'
 import { useRouter } from 'vue-router'
+import { useSupabaseAuth } from '~/composables/useSupabaseAuth'
+import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
 
 const router = useRouter()
+const { user, signOut } = useSupabaseAuth()
 
 // 註冊 Chart.js 組件
 ChartJS.register(ArcElement, Tooltip, Legend)
 
 const store = useTransactionStore()
+const { 
+  transactions, 
+  addTransaction, 
+  updateTransaction, 
+  deleteTransaction, 
+  initialize: initializeSupabase,
+  loading: transactionsLoading,
+  getMonthlyStats
+} = useSupabaseTransactions()
 const showBudgetModal = ref(false)
 const budgetInput = ref('')
 const monthlyBudget = ref(0)
 const showFinancialGoalModal = ref(false)
+
+// 登出處理函數
+const handleLogout = async () => {
+  try {
+    await signOut()
+    // 轉到登入頁面
+    router.push('/auth')
+  } catch (error) {
+    console.error('登出失敗:', error)
+  }
+}
 
 // 確保檢測設備方向變化
 const isLandscape = ref(false)
@@ -563,9 +676,12 @@ const showSmallScreenTooltips = ref(false)
 
 // 增強的 onMounted
 onMounted(() => {
-  initBudget()
-  initFinancialGoals()
-  calculateSmartBudgetRecommendation()
+  // 只有在用戶已登入時才初始化預算和財務目標
+  if (user.value) {
+    initBudget()
+    initFinancialGoals()
+    calculateSmartBudgetRecommendation()
+  }
   
   // 添加方向變化偵聽器
   window.addEventListener('resize', checkOrientation)
@@ -575,7 +691,9 @@ onMounted(() => {
   setupSwipeListeners()
   
   // 如果是新用戶，顯示引導提示
-  checkIfNewUser()
+  if (user.value) {
+    checkIfNewUser()
+  }
 })
 
 // 檢查用戶是否為新用戶
@@ -632,7 +750,8 @@ const currentMonthDisplay = computed(() => {
 
 // 月度統計
 const monthlyStats = computed(() => {
-  return store.getMonthlyStats(currentMonth.value)
+  // 使用 useSupabaseTransactions 提供的方法獲取月度統計
+  return getMonthlyStats(currentMonth.value)
 })
 
 // 餘額顏色
@@ -895,7 +1014,7 @@ const detailedChartOptions = {
 
 // 最近交易
 const recentTransactions = computed(() => {
-  return store.transactions
+  return transactions
     .filter(t => t.date.startsWith(currentMonth.value))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5)
@@ -1136,7 +1255,7 @@ const showDetailedIncomeChart = ref(false)
 const showAllTransactions = ref(false)
 const displayTransactions = computed(() => {
     return showAllTransactions.value ? 
-        store.transactions.filter(t => t.date.startsWith(currentMonth.value)) : 
+        transactions.filter(t => t.date.startsWith(currentMonth.value)) : 
         recentTransactions.value
 })
 
@@ -1227,45 +1346,63 @@ const editTransaction = (transaction) => {
     showEditTransactionModal.value = true
 }
 
-const updateTransaction = () => {
-    if (editingTransaction.value) {
-        store.updateTransaction(editingTransaction.value)
-        showEditTransactionModal.value = false
+// 刪除未使用的函數
+
+const duplicateTransaction = async (transaction) => {
+    try {
+        // 使用從 useAuthenticatedTransactions 引入的 addTransaction
+        const { id, ...txWithoutId } = transaction;
+        await addTransaction(txWithoutId)
+    } catch (error) {
+        console.error('複製交易失敗:', error)
+        alert('複製交易時發生錯誤，請稍後再試。')
     }
 }
 
-const duplicateTransaction = (transaction) => {
-    const duplicate = { ...transaction, id: Date.now().toString() }
-    store.addTransaction(duplicate)
-}
-
-const addTransaction = () => {
-    const newTx = { 
-        ...newTransaction.value,
-        id: Date.now().toString(),
-        amount: Number(newTransaction.value.amount)
-    }
-    store.addTransaction(newTx)
-    showAddTransactionModal.value = false
-    newTransaction.value = { 
-        type: 'expense', 
-        category: '', 
-        amount: 0, 
+// 初始化新的交易資料
+const initNewTransaction = () => {
+    return {
+        type: 'expense',
+        category: '',
+        amount: 0,
         date: dayjs().format('YYYY-MM-DD') 
     }
 }
 
 // 處理新增交易
-const handleTransactionSave = (transaction) => {
-  store.addTransaction(transaction)
-  showAddTransactionModal.value = false
+const handleTransactionSave = async (transaction) => {
+  try {
+    await addTransaction(transaction)
+    showAddTransactionModal.value = false
+  } catch (error) {
+    console.error('新增交易失敗:', error)
+    alert('新增交易時發生錯誤，請稍後再試。')
+  }
 }
 
 // 處理編輯交易
-const handleTransactionEdit = (transaction) => {
-  store.updateTransaction(transaction.id, transaction)
-  showEditTransactionModal.value = false
-  editingTransaction.value = null
+const handleTransactionEdit = async (transaction) => {
+  try {
+    // 從編輯對話框取得的完整交易物件，需要更新 ID 對應的交易
+    // 使用從 useAuthenticatedTransactions 引入的 updateTransaction
+    await updateTransaction(transaction.id, transaction)
+    showEditTransactionModal.value = false
+  } catch (error) {
+    console.error('更新交易失敗:', error)
+    alert('更新交易時發生錯誤，請稍後再試。')
+  }
+}
+
+// 處理刪除交易
+const handleTransactionDelete = async (id) => {
+  try {
+    if (confirm('確定要刪除此交易？')) {
+      await deleteTransaction(id)
+    }
+  } catch (error) {
+    console.error('刪除交易失敗:', error)
+    alert('刪除交易時發生錯誤，請稍後再試。')
+  }
 }
 </script>
 
@@ -1562,4 +1699,4 @@ const handleTransactionEdit = (transaction) => {
   border-style: solid;
   border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
 }
-</style> 
+</style>

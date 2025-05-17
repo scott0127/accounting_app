@@ -1,15 +1,10 @@
 <!-- layouts/default.vue -->
 <template>
   <div class="min-h-screen" :style="{ backgroundColor: currentTheme.colors.background }">
-    <!-- 頂部導航欄 -->
-    <header class="fixed top-0 left-0 right-0 z-50">
-      <div class="flex items-center justify-between px-4 h-14">
-        <h1 class="text-lg font-bold">簡單記帳</h1>
-      </div>
-    </header>
+    
 
     <!-- 主要內容區域 -->
-    <main class="pt-14 pb-16">
+    <main class=" pb-16">
       <slot />
     </main>
 
