@@ -38,6 +38,12 @@ onMounted(async () => {
   --color-textLight: #6B7280;
   --color-success: #10B981;
   --color-error: #EF4444;
+  --color-chart-1: #FF6384;
+  --color-chart-2: #36A2EB;
+  --color-chart-3: #FFCE56;
+  --color-chart-4: #4BC0C0;
+  --color-chart-5: #9966FF;
+  --color-chart-6: #FF9F40;
 }
 
 html {

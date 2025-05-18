@@ -101,18 +101,18 @@
       
       <!-- 月份選擇器 -->
       <div class="flex items-center justify-between mb-6">
-        <button class="p-2" @click="previousMonth">
+        <button class="p-2 text-primary-600 hover:text-primary-800 transition-colors" @click="previousMonth">
           <span class="text-xl">←</span>
         </button>
         <div class="flex items-center">
-          <h2 class="text-lg font-semibold">{{ currentMonthDisplay }}</h2>
+          <h2 class="text-lg font-semibold text-gray-800">{{ currentMonthDisplay }}</h2>
           <button 
-            class="ml-2 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            class="ml-2 px-2 py-1 text-xs bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-md transition-colors"
             @click="goToCurrentMonth">
             今天
           </button>
         </div>
-        <button class="p-2" @click="nextMonth">
+        <button class="p-2 text-primary-600 hover:text-primary-800 transition-colors" @click="nextMonth">
           <span class="text-xl">→</span>
         </button>
       </div>
@@ -290,34 +290,41 @@
           <div
             v-for="transaction in displayTransactions"
             :key="transaction.id"
-            class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+            class="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b border-gray-100 last:border-0"
           >
-            <div class="flex items-center">
+            <div class="flex items-center mb-2 sm:mb-0">
               <span class="text-xl mr-3">{{ getCategoryIcon(transaction.category) }}</span>
               <div>
                 <p class="font-medium">{{ getCategoryName(transaction.category) }}</p>
                 <p class="text-xs text-gray-500">{{ formatDate(transaction.date) }}</p>
               </div>
             </div>
-            <div class="flex items-center">
+            <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto">
               <span
                 class="font-semibold mr-3"
                 :class="transaction.type === 'income' ? 'text-green-500' : 'text-red-500'"
               >
                 {{ transaction.type === 'income' ? '+' : '-' }}{{ formatAmount(transaction.amount) }}
               </span>
-              <div class="flex space-x-1">
+              <div class="flex space-x-2">
                 <button @click="editTransaction(transaction)" 
-                  class="text-gray-400 hover:text-gray-600 p-1">
-                  ✎
+                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                  </svg>
                 </button>
                 <button @click="duplicateTransaction(transaction)"
-                  class="text-gray-400 hover:text-gray-600 p-1">
-                  ⧉
+                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" />
+                    <path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z" />
+                  </svg>
                 </button>
                 <button @click="handleTransactionDelete(transaction.id)" 
-                  class="text-gray-400 hover:text-gray-600 p-1">
-                  🗑
+                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -328,7 +335,7 @@
       <!-- 浮動按鈕 -->
       <button 
         @click="router.push('/transactions/add')"
-        class="fixed right-6 bottom-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center text-2xl"
+        class="fixed right-6 bottom-6 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg hover:bg-primary-700 active:bg-primary-800 transition-colors flex items-center justify-center text-2xl"
       >
         +
       </button>
@@ -734,7 +741,7 @@ const monthlyStats = computed(() => {
 
 // 餘額顏色
 const balanceColor = computed(() => {
-  return monthlyStats.value.balance >= 0 ? 'text-green-500' : 'text-red-500'
+  return monthlyStats.value.balance >= 0 ? 'text-success-500' : 'text-danger-500'
 })
 
 // 剩餘預算顏色
@@ -923,7 +930,7 @@ const incomeChartData = computed(() => {
 })
 
 // 圖表顏色
-const chartColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+const chartColors = ['#FF6384', '#3B82F6', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
 const incomeChartColors = ['#10B981', '#3B82F6', '#8B5CF6']
 
 // 幫助提示功能
@@ -977,7 +984,7 @@ const detailedChartOptions = {
         font: {
           size: 10
         }
-      }
+      },
     },
     tooltip: {
       callbacks: {
@@ -992,10 +999,27 @@ const detailedChartOptions = {
 
 // 最近交易
 const recentTransactions = computed(() => {
-  return transactions
+  // 確保 transactions 存在且是陣列
+  if (!transactions.value || !Array.isArray(transactions.value)) {
+    return []
+  }
+  
+  return transactions.value
     .filter(t => t.date.startsWith(currentMonth.value))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5)
+})
+
+// 顯示交易列表
+const displayTransactions = computed(() => {
+  // 確保 transactions 存在且是陣列
+  if (!transactions.value || !Array.isArray(transactions.value)) {
+    return []
+  }
+  
+  return showAllTransactions.value ? 
+    transactions.value.filter(t => t.date.startsWith(currentMonth.value)) : 
+    recentTransactions.value
 })
 
 // 按類型過濾類別
@@ -1115,9 +1139,9 @@ const budgetLiquidColor = computed(() => {
 const budgetTextColor = computed(() => {
   if (monthlyBudget.value === 0) return 'text-gray-500'
   const percentage = monthlyStats.value.totalExpense / monthlyBudget.value
-  if (percentage >= 1) return 'text-red-600'
-  if (percentage >= 0.8) return 'text-yellow-600'
-  return 'text-green-600'
+  if (percentage >= 1) return 'text-danger-600'
+  if (percentage >= 0.8) return 'text-warning-600'
+  return 'text-success-600'
 })
 
 // 獲取預算高度百分比
@@ -1186,9 +1210,9 @@ const getStatusColorClass = (type, value) => {
 // 新增的計算屬性和方法
 const financialHealthClass = computed(() => {
   const savingRate = savingsRate.value
-  if (savingRate <= 0) return 'bg-red-100 text-red-700'
-  if (savingRate < 10) return 'bg-yellow-100 text-yellow-700'
-  return 'bg-green-100 text-green-700'
+  if (savingRate <= 0) return 'bg-danger-100 text-danger-700'
+  if (savingRate < 10) return 'bg-warning-100 text-warning-700'
+  return 'bg-success-100 text-success-700'
 })
 
 const financialHealthStatus = computed(() => {
@@ -1231,11 +1255,6 @@ const getBudgetCircleValue = () => {
 const showDetailedExpenseChart = ref(false)
 const showDetailedIncomeChart = ref(false)
 const showAllTransactions = ref(false)
-const displayTransactions = computed(() => {
-    return showAllTransactions.value ? 
-        transactions.filter(t => t.date.startsWith(currentMonth.value)) : 
-        recentTransactions.value
-})
 
 // 交易相关变量
 const showAddTransactionModal = ref(false)
@@ -1313,9 +1332,9 @@ const budgetCircleColor = computed(() => {
 const budgetStatusBackground = computed(() => {
     if (monthlyBudget.value === 0) return 'bg-gray-100'
     const percentage = monthlyStats.value.totalExpense / monthlyBudget.value
-    if (percentage >= 1) return 'bg-red-50'
-    if (percentage >= 0.8) return 'bg-yellow-50'
-    return 'bg-green-50'
+    if (percentage >= 1) return 'bg-danger-50'
+    if (percentage >= 0.8) return 'bg-warning-50'
+    return 'bg-success-50'
 })
 
 // 交易相关方法

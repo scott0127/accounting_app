@@ -25,7 +25,7 @@
               class="w-4 h-4 rounded-full"
               :style="{ backgroundColor: theme.colors.primary }"
             ></div>
-            <span class="font-medium">{{ theme.name }}</span>
+            <span class="font-medium" :style="{ color: theme.colors.text }">{{ theme.name }}</span>
           </div>
           <div class="flex space-x-2">
             <div
@@ -253,4 +253,4 @@ const confirmClearData = () => {
 .border-error {
   border-color: var(--color-error);
 }
-</style> 
+</style>

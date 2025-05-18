@@ -21,73 +21,104 @@ export interface Theme {
 const themes: Theme[] = [
   {
     id: 'default',
-    name: '預設主題',
+    name: '湛藍天空',
     colors: {
       primary: '#3B82F6',
-      secondary: '#6366F1',
-      accent: '#8B5CF6',
-      background: '#F3F4F6',
+      secondary: '#60A5FA',
+      accent: '#6366F1',
+      background: '#F8FAFC',
       surface: '#FFFFFF',
-      text: '#1F2937',
-      textLight: '#6B7280',
+      text: '#1E293B',
+      textLight: '#64748B',
       success: '#10B981',
-      error: '#EF4444',
-      chart: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+      error: '#F43F5E',
+      chart: ['#3B82F6', '#6366F1', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444']
     }
   },
   {
     id: 'dark',
-    name: '暗色主題',
+    name: '深夜星空',
     colors: {
       primary: '#60A5FA',
       secondary: '#818CF8',
       accent: '#A78BFA',
-      background: '#111827',
-      surface: '#1F2937',
-      text: '#F9FAFB',
-      textLight: '#9CA3AF',
+      background: '#0F172A',
+      surface: '#1E293B',
+      text: '#F8FAFC',
+      textLight: '#94A3B8',
       success: '#34D399',
-      error: '#F87171',
-      chart: ['#F472B6', '#60A5FA', '#FBBF24', '#34D399', '#A78BFA', '#FB923C']
+      error: '#FB7185',
+      chart: ['#60A5FA', '#818CF8', '#A78BFA', '#34D399', '#FBBF24', '#FB7185']
     }
   },
   {
     id: 'nature',
-    name: '自然主題',
+    name: '清新綠野',
     colors: {
       primary: '#059669',
-      secondary: '#047857',
-      accent: '#065F46',
-      background: '#ECFDF5',
+      secondary: '#10B981',
+      accent: '#34D399',
+      background: '#F0FDF4',
       surface: '#FFFFFF',
       text: '#064E3B',
       textLight: '#047857',
       success: '#059669',
-      error: '#DC2626',
-      chart: ['#059669', '#047857', '#065F46', '#047857', '#065F46', '#059669']
+      error: '#E11D48',
+      chart: ['#059669', '#10B981', '#047857', '#34D399', '#059669', '#065F46']
     }
   },
   {
     id: 'warm',
-    name: '暖色主題',
+    name: '暖陽時光',
     colors: {
-      primary: '#F59E0B',
-      secondary: '#D97706',
-      accent: '#B45309',
-      background: '#FFFBEB',
+      primary: '#F97316',
+      secondary: '#FB923C',
+      accent: '#FDBA74',
+      background: '#FFF7ED',
       surface: '#FFFFFF',
-      text: '#92400E',
-      textLight: '#B45309',
-      success: '#059669',
+      text: '#7C2D12',
+      textLight: '#9A3412',
+      success: '#16A34A',
       error: '#DC2626',
-      chart: ['#F59E0B', '#D97706', '#B45309', '#D97706', '#B45309', '#F59E0B']
+      chart: ['#F97316', '#FB923C', '#FDBA74', '#F59E0B', '#EAB308', '#CA8A04']
+    }
+  },
+  {
+    id: 'berry',
+    name: '莓果甜心',
+    colors: {
+      primary: '#DB2777',
+      secondary: '#EC4899',
+      accent: '#F472B6',
+      background: '#FDF2F8',
+      surface: '#FFFFFF',
+      text: '#831843',
+      textLight: '#BE185D',
+      success: '#10B981',
+      error: '#DC2626',
+      chart: ['#DB2777', '#EC4899', '#F472B6', '#A21CAF', '#C026D3', '#E879F9']
+    }
+  },
+  {
+    id: 'ocean',
+    name: '海洋之心',
+    colors: {
+      primary: '#0891B2',
+      secondary: '#06B6D4',
+      accent: '#22D3EE',
+      background: '#ECFEFF',
+      surface: '#FFFFFF',
+      text: '#155E75',
+      textLight: '#0E7490',
+      success: '#10B981',
+      error: '#E11D48',
+      chart: ['#0891B2', '#06B6D4', '#22D3EE', '#0284C7', '#0369A1', '#0EA5E9']
     }
   }
 ]
 
 export const useTheme = () => {
   const currentTheme = ref<Theme>(themes[0])
-
   const setTheme = async (themeId: string) => {
     const theme = themes.find(t => t.id === themeId)
     if (theme) {
@@ -99,6 +130,11 @@ export const useTheme = () => {
       Object.entries(theme.colors).forEach(([key, value]) => {
         if (typeof value === 'string') {
           root.style.setProperty(`--color-${key}`, value)
+        } else if (Array.isArray(value) && key === 'chart') {
+          // 設定圖表顏色
+          value.forEach((color, index) => {
+            root.style.setProperty(`--color-chart-${index + 1}`, color)
+          })
         }
       })
     }
@@ -117,4 +153,4 @@ export const useTheme = () => {
     setTheme,
     initTheme
   }
-} 
+}

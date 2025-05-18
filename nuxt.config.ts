@@ -26,6 +26,11 @@ export default defineNuxtConfig({
       ],
     }
   },
+  css: [
+    // 添加顏色主題文件
+    '~/assets/css/colors.css',
+    // ...其他CSS文件
+  ],
   pwa: {
     registerType: 'autoUpdate',
     manifest: {

@@ -1,6 +1,6 @@
 <!-- layouts/default.vue -->
 <template>
-  <div class="min-h-screen" :style="{ backgroundColor: currentTheme.colors.background }">
+  <div class="min-h-screen" :class="`bg-[${currentTheme.colors.background}]`">
     
 
     <!-- 主要內容區域 -->
@@ -9,21 +9,40 @@
     </main>
 
     <!-- 底部導航欄 -->
-    <nav class="fixed bottom-0 left-0 right-0 card border-t border-gray-200">
+    <nav
+      class="fixed bottom-0 left-0 right-0 card border-t"
+      :class="`bg-[${currentTheme.colors.surface}] border-[${currentTheme.colors.textLight}]`"
+    >
       <div class="grid grid-cols-4 h-16">
-        <NuxtLink to="/" class="flex flex-col items-center justify-center">
+        <NuxtLink
+          to="/"
+          class="flex flex-col items-center justify-center"
+          :class="`text-[${currentTheme.colors.text}]`"
+        >
           <i class="text-xl mb-1">📊</i>
           <span class="text-xs">總覽</span>
         </NuxtLink>
-        <NuxtLink to="/transactions" class="flex flex-col items-center justify-center">
+        <NuxtLink
+          to="/transactions"
+          class="flex flex-col items-center justify-center"
+          :class="`text-[${currentTheme.colors.text}]`"
+        >
           <i class="text-xl mb-1">📝</i>
           <span class="text-xs">記錄</span>
         </NuxtLink>
-        <NuxtLink to="/statistics" class="flex flex-col items-center justify-center">
+        <NuxtLink
+          to="/statistics"
+          class="flex flex-col items-center justify-center"
+          :class="`text-[${currentTheme.colors.text}]`"
+        >
           <i class="text-xl mb-1">📈</i>
           <span class="text-xs">統計</span>
         </NuxtLink>
-        <NuxtLink to="/settings" class="flex flex-col items-center justify-center">
+        <NuxtLink
+          to="/settings"
+          class="flex flex-col items-center justify-center"
+          :class="`text-[${currentTheme.colors.text}]`"
+        >
           <i class="text-xl mb-1">⚙️</i>
           <span class="text-xs">設定</span>
         </NuxtLink>
@@ -33,7 +52,7 @@
     <!-- 新增記帳按鈕 -->
     <button 
       class="fixed right-4 bottom-20 w-14 h-14 rounded-full text-white text-2xl shadow-lg flex items-center justify-center"
-      :style="{ backgroundColor: currentTheme.colors.primary }"
+      :class="`bg-[${currentTheme.colors.primary}]`"
       @click="navigateToAdd"
     >
       +
