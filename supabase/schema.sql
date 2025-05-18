@@ -4,7 +4,7 @@
 alter table if exists public.profiles enable row level security;
 alter table if exists public.transactions enable row level security;
 
--- 創建交易資料表
+-- 創建交易資料表 (修改版，符合實際結構)
 create table if not exists public.transactions (
   id uuid not null default uuid_generate_v4() primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -13,12 +13,10 @@ create table if not exists public.transactions (
   category_id text not null,
   date date not null default current_date,
   description text,
-  note text,
-  created_at timestamp with time zone default now() not null,
-  updated_at timestamp with time zone default now() not null
+  created_at timestamp with time zone default now() not null
 );
 
--- 創建類別資料表
+-- 創建類別資料表 (根據實際結構可能也需要調整)
 create table if not exists public.categories (
   id text not null primary key,
   name text not null,
@@ -30,7 +28,7 @@ create table if not exists public.categories (
   updated_at timestamp with time zone default now() not null
 );
 
--- 創建個人資料表
+-- 創建個人資料表 (根據實際結構可能也需要調整)
 create table if not exists public.profiles (
   id uuid references auth.users(id) on delete cascade not null primary key,
   display_name text,
@@ -61,7 +59,8 @@ create policy "使用者只能修改自己創建的類別"
   for all 
   using (user_id = auth.uid() and user_id is not null);
 
--- 自動更新updated_at列的函數
+-- 刪除不需要的 updated_at 觸發器，因為 transactions 表沒有 updated_at 欄位
+-- 為其他表創建 updated_at 觸發器
 create or replace function update_updated_at_column()
 returns trigger as $$
 begin
@@ -70,12 +69,7 @@ begin
 end;
 $$ language plpgsql;
 
--- 為每個表創建updated_at觸發器
-create trigger set_updated_at
-before update on public.transactions
-for each row
-execute function update_updated_at_column();
-
+-- 不要為 transactions 表創建觸發器，因為它沒有 updated_at 欄位
 create trigger set_updated_at
 before update on public.profiles
 for each row

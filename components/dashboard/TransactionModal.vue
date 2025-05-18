@@ -152,10 +152,12 @@ type TransactionMode = 'ai' | 'expense' | 'income'
 interface TransactionData {
   id?: string;
   type: 'income' | 'expense';
-  category: string;
+  category: string; // 前端界面使用 category，但會轉換為 category_id 傳給後端
+  category_id?: string; // 增加 category_id 欄位以支持 Supabase 結構
   amount: number | string;
   date: string;
   description?: string;
+  note?: string; // 增加 note 欄位以支持資料庫結構
 }
 
 interface Category {
@@ -235,13 +237,41 @@ const extractAmountFromDescription = (description: string): number => {
 
 // Validate form
 const isValid = computed(() => {
+  // 對 AI 模式的驗證邏輯
   if (transactionMode.value === 'ai') {
     return expenseDescription.value.trim() !== '' && extractAmountFromDescription(expenseDescription.value) > 0
   }
   
+  // 對一般模式的驗證邏輯（支出/收入）
   const amount = Number(transactionData.value.amount)
+  
+  // 輸出除錯資訊
+  console.log('驗證資料:', {
+    amount,
+    category: transactionData.value.category,
+    isValid: amount > 0 && transactionData.value.category !== ''
+  })
+  
   return amount > 0 && transactionData.value.category !== ''
 })
+
+// Auto-classify the expense based on description
+const autoClassifyExpense = () => {
+  if (expenseDescription.value.trim()) {
+    classificationResult.value = classifyExpense(expenseDescription.value)
+    if (transactionMode.value === 'ai') {
+      transactionData.value.category = classificationResult.value.categoryId
+      
+      // If in AI mode, try to extract amount
+      const amount = extractAmountFromDescription(expenseDescription.value)
+      if (amount > 0) {
+        transactionData.value.amount = amount
+      }
+    }
+  } else {
+    classificationResult.value = null
+  }
+}
 
 // Watch for transaction mode changes
 watch(transactionMode, (newMode) => {
@@ -264,24 +294,6 @@ watch(() => props.transaction, (newVal) => {
   }
 }, { immediate: true })
 
-// Auto-classify the expense based on description
-const autoClassifyExpense = () => {
-  if (expenseDescription.value.trim()) {
-    classificationResult.value = classifyExpense(expenseDescription.value)
-    if (transactionMode.value === 'ai') {
-      transactionData.value.category = classificationResult.value.categoryId
-      
-      // If in AI mode, try to extract amount
-      const amount = extractAmountFromDescription(expenseDescription.value)
-      if (amount > 0) {
-        transactionData.value.amount = amount
-      }
-    }
-  } else {
-    classificationResult.value = null
-  }
-}
-
 // Get category name from ID
 const getCategoryName = (categoryId: string): string => {
   const category = props.categories.find(c => c.id === categoryId)
@@ -295,15 +307,30 @@ const saveTransaction = () => {
   const dataToSave = { ...transactionData.value }
   
   if (transactionMode.value === 'ai') {
+    // AI 模式處理
     dataToSave.type = 'expense'
     dataToSave.description = expenseDescription.value
     dataToSave.amount = extractAmountFromDescription(expenseDescription.value)
     dataToSave.category = classificationResult.value?.categoryId || 'food'
+    dataToSave.category_id = classificationResult.value?.categoryId || 'food'
   } else {
+    // 一般模式處理
     dataToSave.description = expenseDescription.value
+    dataToSave.category_id = dataToSave.category
   }
   
-  emit('save', dataToSave)
+  // 確保前端也能顯示 note，但是不會傳送到後端
+  // 為了保持前端顯示一致性，將 description 也保存在前端的 note 欄位中
+  dataToSave.note = dataToSave.description
+  
+  // 處理資料庫不存在的欄位，避免 Supabase 錯誤
+  const cleanedData = { ...dataToSave }
+  
+  // 刪除可能導致問題的欄位
+  if ('updated_at' in cleanedData) delete cleanedData.updated_at
+  
+  console.log('準備儲存交易資料:', cleanedData)
+  emit('save', cleanedData)
 }
 </script>
 
@@ -316,4 +343,4 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
-</style> 
+</style>

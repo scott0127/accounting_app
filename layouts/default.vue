@@ -42,6 +42,9 @@
 </template>
 
 <script setup lang="ts">
+import { useSupabaseAuth } from '~/composables/useSupabaseAuth'
+useSupabaseAuth()
+
 const router = useRouter()
 const { currentTheme } = useTheme()
 
@@ -80,4 +83,4 @@ main {
   -webkit-overflow-scrolling: touch;
   height: calc(100vh - 3.5rem - 4rem); /* 扣除頂部和底部導航的高度 */
 }
-</style> 
+</style>

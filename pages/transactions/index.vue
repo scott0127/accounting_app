@@ -62,10 +62,9 @@
               @click="editTransaction(transaction)"
             >
               <div class="flex items-center">
-                <span class="text-xl mr-3">{{ getCategoryIcon(transaction.category) }}</span>
-                <div>
+                <span class="text-xl mr-3">{{ getCategoryIcon(transaction.category) }}</span>                <div>
                   <p class="font-medium">{{ getCategoryName(transaction.category) }}</p>
-                  <p class="text-xs text-gray-500">{{ transaction.note || '無備註' }}</p>
+                  <p class="text-xs text-gray-500">{{ transaction.description || transaction.note || '無備註' }}</p>
                 </div>
               </div>
               <span
@@ -119,6 +118,20 @@ import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-tw'
 import TransactionModal from '~/components/dashboard/TransactionModal.vue'
+import { useSupabaseAuth } from '~/composables/useSupabaseAuth'
+
+const { user, isLoading } = useSupabaseAuth()
+
+onMounted(async () => {
+  // 等待 user 狀態 ready
+  while (isLoading.value) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  if (user.value) {
+    await initializeSupabase()
+  }
+})
+
 
 dayjs.locale('zh-tw')
 
@@ -130,7 +143,9 @@ const {
   transactions: supabaseTransactions, 
   getMonthlyStats, 
   loading,
-  initialize: initializeSupabase 
+  initialize: initializeSupabase,
+  updateTransaction,
+  deleteTransaction
 } = useSupabaseTransactions()
 
 // 初始化 Supabase 數據
@@ -234,20 +249,38 @@ const editTransaction = (transaction: any) => {
 // 處理交易編輯
 const handleTransactionEdit = async (transaction: any) => {
   try {
-    const { updateTransaction } = useSupabaseTransactions()
-    await updateTransaction(transaction.id, transaction)
+    // 建立要更新的交易資料物件 - 只保留資料庫實際需要的欄位
+    const transactionToUpdate = {
+      id: transaction.id,  // 確保 ID 是正確的
+      amount: transaction.amount,
+      type: transaction.type,
+      date: transaction.date,
+      description: transaction.description || transaction.note || "",
+      category_id: transaction.category || transaction.category_id || ""
+    }
+    
+    console.log('原始交易資料:', transaction)
+    console.log('準備更新交易資料:', transactionToUpdate)
+    
+    // 發送更新請求，不帶 ID，因為它是路徑參數
+    await updateTransaction(transaction.id, {
+      amount: transactionToUpdate.amount,
+      type: transactionToUpdate.type,
+      date: transactionToUpdate.date,
+      description: transactionToUpdate.description,
+      category_id: transactionToUpdate.category_id
+    })
+    
     showEditModal.value = false
   } catch (error) {
     console.error('更新交易失敗:', error)
     alert('更新交易時發生錯誤，請稍後再試。')
   }
 }
-
 // 處理交易刪除
 const handleTransactionDelete = async (id: string) => {
   try {
     if (confirm('確定要刪除此交易？')) {
-      const { deleteTransaction } = useSupabaseTransactions()
       await deleteTransaction(id)
     }
   } catch (error) {
@@ -255,4 +288,4 @@ const handleTransactionDelete = async (id: string) => {
     alert('刪除交易時發生錯誤，請稍後再試。')
   }
 }
-</script> 
+</script>

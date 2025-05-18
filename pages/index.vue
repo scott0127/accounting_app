@@ -135,18 +135,7 @@
                 :data="expenseChartData"
                 :options="doughnutOptions"
               />
-              <!-- 顯示前三大類別 -->
-              <div v-if="topExpenseCategories.length" class="mt-2 text-xs">
-                <div v-for="(category, index) in topExpenseCategories" :key="index" 
-                  class="flex justify-between items-center">
-                  <div class="flex items-center">
-                    <div class="w-2 h-2 rounded-full mr-1" 
-                        :style="{ backgroundColor: chartColors[index % chartColors.length] }"></div>
-                    <span>{{ category.name }}</span>
-                  </div>
-                  <span>{{ formatAmount(category.amount) }}</span>
-                </div>
-              </div>
+             
             </template>
             <div v-else class="h-full flex items-center justify-center text-gray-400">
               無支出資料
@@ -173,18 +162,7 @@
                 :data="incomeChartData"
                 :options="doughnutOptions"
               />
-              <!-- 顯示前三大類別 -->
-              <div v-if="topIncomeCategories.length" class="mt-2 text-xs">
-                <div v-for="(category, index) in topIncomeCategories" :key="index" 
-                  class="flex justify-between items-center">
-                  <div class="flex items-center">
-                    <div class="w-2 h-2 rounded-full mr-1" 
-                        :style="{ backgroundColor: incomeChartColors[index % incomeChartColors.length] }"></div>
-                    <span>{{ category.name }}</span>
-                  </div>
-                  <span>{{ formatAmount(category.amount) }}</span>
-                </div>
-              </div>
+             
             </template>
             <div v-else class="h-full flex items-center justify-center text-gray-400">
               無收入資料
