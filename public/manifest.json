@@ -4,7 +4,7 @@
   "description": "AI 智能記帳，簡單又方便",
   "theme_color": "#2563eb",
   "background_color": "#ffffff",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "portrait",
   "scope": "/",
   "start_url": "/?mode=pwa",
