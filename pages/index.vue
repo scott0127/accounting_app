@@ -270,6 +270,7 @@
                   :options="doughnutOptions"
                 />
               </template>
+
               <div v-else :style="`color: ${currentTheme.colors.textLight}`">
                 無收入資料
               </div>
@@ -687,6 +688,91 @@
         </div>
       </div>
     </main>
+    <!-- 支出詳情 Modal -->
+    <div
+      v-if="showDetailedExpenseChart"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+      :style="`background: linear-gradient(120deg, ${currentTheme.colors.error}11 0%, ${currentTheme.colors.surface}EE 100%)`"
+      @click.self="showDetailedExpenseChart = false"
+    >
+      <div
+        class="rounded-2xl shadow-xl p-6 w-[90vw] max-w-xs relative"
+        :style="`background: ${currentTheme.colors.surface}; border: 2px solid ${currentTheme.colors.error}33;`"
+      >
+        <button
+          class="absolute top-2 right-2 rounded-full p-1 transition hover:bg-[${currentTheme.colors.error}11]"
+          :style="`color: ${currentTheme.colors.error}`"
+          @click="showDetailedExpenseChart = false"
+        >
+          ✕
+        </button>
+        <h3
+          class="text-lg font-bold mb-2"
+          :style="`color: ${currentTheme.colors.error}`"
+        >
+          支出詳情
+        </h3>
+        <div class="h-48 mb-2">
+          <DoughnutChart
+            :data="expenseChartData"
+            :options="detailedChartOptions"
+          />
+        </div>
+        <ul class="text-sm">
+          <li
+            v-for="cat in expenseCategories"
+            :key="cat.id"
+            class="flex justify-between py-1"
+          >
+            <span>{{ cat.name }}</span>
+            <span>{{ formatAmount(cat.amount) }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 收入詳情 Modal -->
+    <div
+      v-if="showDetailedIncomeChart"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+      :style="`background: linear-gradient(120deg, ${currentTheme.colors.success}11 0%, ${currentTheme.colors.surface}EE 100%)`"
+      @click.self="showDetailedIncomeChart = false"
+    >
+      <div
+        class="rounded-2xl shadow-xl p-6 w-[90vw] max-w-xs relative"
+        :style="`background: ${currentTheme.colors.surface}; border: 2px solid ${currentTheme.colors.success}33;`"
+      >
+        <button
+          class="absolute top-2 right-2 rounded-full p-1 transition hover:bg-[${currentTheme.colors.success}11]"
+          :style="`color: ${currentTheme.colors.success}`"
+          @click="showDetailedIncomeChart = false"
+        >
+          ✕
+        </button>
+        <h3
+          class="text-lg font-bold mb-2"
+          :style="`color: ${currentTheme.colors.success}`"
+        >
+          收入詳情
+        </h3>
+        <div class="h-48 mb-2">
+          <DoughnutChart
+            :data="incomeChartData"
+            :options="detailedChartOptions"
+          />
+        </div>
+        <ul class="text-sm">
+          <li
+            v-for="cat in incomeCategories"
+            :key="cat.id"
+            class="flex justify-between py-1"
+          >
+            <span>{{ cat.name }}</span>
+            <span>{{ formatAmount(cat.amount) }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
 </template>
 
