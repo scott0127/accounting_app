@@ -19,7 +19,7 @@ export default defineNuxtConfig({
       title: '簡單記帳',
       meta: [
         { charset: 'utf-8' },
-        { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui, viewport-fit=cover' },
         { name: 'description', content: '簡單好用的記帳 App' },
         // iOS
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
@@ -33,6 +33,10 @@ export default defineNuxtConfig({
         { name: 'display-mode', content: 'standalone' }
       ],
       link: [
+        {
+          rel: 'manifest',
+          href: '/manifest.json'
+        },
         {
           rel: 'stylesheet',
           href: 'https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Varela+Round&display=swap'
