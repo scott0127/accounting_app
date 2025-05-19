@@ -53,7 +53,7 @@ export default defineNuxtConfig({
       description: 'AI 智能記帳，簡單又方便',
       theme_color: '#2563eb',
       background_color: '#ffffff',
-      display: 'standalone',
+      display: 'fullscreen',
       orientation: 'portrait',
       start_url: '/?standalone=true',
       id: '/',
