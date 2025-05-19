@@ -52,30 +52,10 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
-      name: '簡單記帳',
-      short_name: '記帳',
+      name: '懶人記帳',
+      short_name: '懶人記帳',
       description: 'AI 智能記帳，簡單又方便',
-      theme_color: '#2563eb',
-      background_color: '#ffffff',
-      display: 'fullscreen',
-      orientation: 'portrait',
-      start_url: '/?standalone=true',
-      id: '/',
-      scope: '/',
-      icons: [
-        {
-          src: '/pwa-192x192.png',
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any maskable'
-        },
-        {
-          src: '/pwa-512x512.png',
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any maskable'
-        }
-      ]
+      display: 'standalone',
     },
     workbox: {
       navigateFallback: '/',
