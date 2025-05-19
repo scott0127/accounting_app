@@ -2,6 +2,10 @@
 module.exports = {
   theme: {
     extend: {
+      fontFamily: {
+        rounded: ['Varela Round', 'sans-serif'],
+        quicksand: ['Quicksand', 'sans-serif'],
+      },
       colors: {
         primary: {
           50: 'var(--color-primary-50)',

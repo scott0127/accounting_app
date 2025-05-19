@@ -1,94 +1,158 @@
 <!-- pages/statistics.vue -->
 <template>
-  <div class="p-4">
-    <!-- 月份選擇器 -->
-    <div class="flex items-center justify-between mb-6">
-      <button class="p-2" @click="previousMonth">
-        <span class="text-xl">←</span>
+  <div class="min-h-screen p-4 transition-all duration-300 space-y-6" :class="`bg-[${currentTheme.colors.background}] text-[${currentTheme.colors.text}]`">
+    <!-- 頁面標題 -->
+    <div class="mb-2">
+      <h1 class="text-2xl font-bold drop-shadow-sm" :class="`text-[${currentTheme.colors.text}]`">數據統計</h1>
+      <p class="text-sm mt-1 font-medium" :class="`text-[${currentTheme.colors.textLight}]`">檢視您的財務概況</p>
+    </div>
+
+    <!-- 月份選擇器 - 增加陰影和邊框 -->
+    <div class="flex items-center justify-between p-4 rounded-2xl shadow-lg border border-opacity-10" 
+         :class="`bg-[${currentTheme.colors.surface}] border-[${currentTheme.colors.text}]`">
+      <button class="p-3 rounded-full transition-transform hover:scale-110" 
+              @click="previousMonth"
+              :class="`bg-[${currentTheme.colors.background}] text-[${currentTheme.colors.primary}]`">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+        </svg>
       </button>
-      <h2 class="text-lg font-semibold">{{ currentMonthDisplay }}</h2>
-      <button class="p-2" @click="nextMonth">
-        <span class="text-xl">→</span>
+      
+      <div class="text-center">
+        <h2 class="text-lg font-semibold" :class="`text-[${currentTheme.colors.text}]`">{{ currentMonthDisplay }}</h2>
+      </div>
+      
+      <button class="p-3 rounded-full transition-transform hover:scale-110" 
+              @click="nextMonth"
+              :class="`bg-[${currentTheme.colors.background}] text-[${currentTheme.colors.primary}]`">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+        </svg>
       </button>
     </div>
 
-    <!-- 收支概況 -->
-    <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
-      <h3 class="text-base font-semibold mb-4">收支概況</h3>
-      <div class="h-64">
+    <!-- 收支概況 - 增強卡片視覺效果 -->
+    <div class="rounded-2xl shadow-lg border border-opacity-10 p-6 relative overflow-hidden backdrop-blur-sm" 
+         :class="`bg-[${currentTheme.colors.surface}] border-[${currentTheme.colors.text}]`">
+      <!-- 背景裝飾 -->
+      <div class="absolute inset-0 opacity-5 bg-gradient-to-br"
+           :style="`background: linear-gradient(135deg, ${currentTheme.colors.primary}20, transparent)`">
+      </div>
+      
+      <h3 class="text-lg font-bold mb-4 relative z-10 drop-shadow-sm flex items-center gap-2" :class="`text-[${currentTheme.colors.text}]`">
+        <span class="inline-block w-1 h-6 rounded-full" :style="`background: ${currentTheme.colors.primary}`"></span>
+        收支概況
+      </h3>
+      
+      <div class="h-64 relative z-10 bg-opacity-60 rounded-lg p-2 border border-opacity-5"
+           :class="`bg-[${currentTheme.colors.background}] border-[${currentTheme.colors.text}]`">
         <template v-if="lineChartData">
           <Line
             :data="lineChartData"
-            :options="lineChartOptions"
+            :options="getLineChartOptions()"
           />
         </template>
-        <div v-else class="h-full flex items-center justify-center text-gray-400">
+        <div v-else class="h-full flex items-center justify-center" :class="`text-[${currentTheme.colors.textLight}]`">
           載入中...
         </div>
       </div>
     </div>
 
     <!-- 支出分類 -->
-    <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
-      <h3 class="text-base font-semibold mb-4">支出分類</h3>
-      <div class="h-64">
+    <div class="rounded-2xl shadow-lg border border-opacity-10 p-6 relative overflow-hidden backdrop-blur-sm" 
+         :class="`bg-[${currentTheme.colors.surface}] border-[${currentTheme.colors.text}]`">
+      <h3 class="text-lg font-bold mb-4 relative z-10 drop-shadow-sm flex items-center gap-2" :class="`text-[${currentTheme.colors.text}]`">
+        <span class="inline-block w-1 h-6 rounded-full" :style="`background: ${currentTheme.colors.error}`"></span>
+        支出分類
+      </h3>
+      
+      <div class="h-64 relative z-10 bg-opacity-60 rounded-lg p-2 border border-opacity-5"
+           :class="`bg-[${currentTheme.colors.background}] border-[${currentTheme.colors.text}]`">
         <template v-if="doughnutChartData">
           <DoughnutChart
             :data="doughnutChartData"
-            :options="doughnutChartOptions"
+            :options="getDoughnutChartOptions()"
           />
         </template>
-        <div v-else class="h-full flex items-center justify-center text-gray-400">
+        <div v-else class="h-full flex items-center justify-center" :class="`text-[${currentTheme.colors.textLight}]`">
           載入中...
         </div>
       </div>
+      
       <!-- 分類列表 -->
-      <div class="mt-6 space-y-3">
+      <div class="mt-6 space-y-2 relative z-10">
         <div
           v-for="category in sortedExpenseCategories"
           :key="category.id"
-          class="flex items-center justify-between"
+          class="flex items-center justify-between p-4 rounded-xl border border-opacity-5 transition-all duration-200"
+          :class="`hover:bg-[${currentTheme.colors.background}] border-[${currentTheme.colors.text}] bg-[${currentTheme.colors.background}] bg-opacity-40`"
         >
           <div class="flex items-center">
-            <span class="text-xl mr-2">{{ category.icon }}</span>
-            <span>{{ category.name }}</span>
+            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3"
+                 :style="`background: linear-gradient(135deg, ${currentTheme.colors.error}20, ${currentTheme.colors.background})`">
+              <span class="text-xl">{{ category.icon }}</span>
+            </div>
+            <span :class="`text-[${currentTheme.colors.text}]`">{{ category.name }}</span>
           </div>
           <div class="text-right">
-            <p class="font-semibold">{{ formatAmount(category.amount) }}</p>
-            <p class="text-xs text-gray-500">{{ category.percentage.toFixed(1) }}%</p>
+            <p class="font-semibold" :class="`text-[${currentTheme.colors.error}]`">
+              {{ formatAmount(category.amount) }}
+            </p>
+            <p class="text-xs" :class="`text-[${currentTheme.colors.textLight}]`">
+              {{ category.percentage.toFixed(1) }}%
+            </p>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 收入分類 -->
-    <div class="bg-white rounded-xl shadow-sm p-4">
-      <h3 class="text-base font-semibold mb-4">收入分類</h3>
-      <div class="h-64">
+    <div class="rounded-2xl shadow-lg border border-opacity-10 p-6 relative overflow-hidden backdrop-blur-sm" 
+         :class="`bg-[${currentTheme.colors.surface}] border-[${currentTheme.colors.text}]`">
+      <div class="absolute -right-10 -bottom-10 w-40 h-40 rounded-full opacity-10"
+           :style="`background: radial-gradient(circle, ${currentTheme.colors.success}, ${currentTheme.colors.primary})`">
+      </div>
+      
+      <h3 class="text-lg font-bold mb-4 relative z-10 drop-shadow-sm flex items-center gap-2" :class="`text-[${currentTheme.colors.text}]`">
+        <span class="inline-block w-1 h-6 rounded-full" :style="`background: ${currentTheme.colors.success}`"></span>
+        收入分類
+      </h3>
+      
+      <div class="h-64 relative z-10 bg-opacity-60 rounded-lg p-2 border border-opacity-5"
+           :class="`bg-[${currentTheme.colors.background}] border-[${currentTheme.colors.text}]`">
         <template v-if="incomeChartData">
           <DoughnutChart
             :data="incomeChartData"
-            :options="doughnutChartOptions"
+            :options="getDoughnutChartOptions()"
           />
         </template>
-        <div v-else class="h-full flex items-center justify-center text-gray-400">
+        <div v-else class="h-full flex items-center justify-center" :class="`text-[${currentTheme.colors.textLight}]`">
           載入中...
         </div>
       </div>
+      
       <!-- 分類列表 -->
-      <div class="mt-6 space-y-3">
+      <div class="mt-6 space-y-2 relative z-10">
         <div
           v-for="category in sortedIncomeCategories"
           :key="category.id"
-          class="flex items-center justify-between"
+          class="flex items-center justify-between p-4 rounded-xl border border-opacity-5 transition-all duration-200"
+          :class="`hover:bg-[${currentTheme.colors.background}] border-[${currentTheme.colors.text}] bg-[${currentTheme.colors.background}] bg-opacity-40`"
         >
           <div class="flex items-center">
-            <span class="text-xl mr-2">{{ category.icon }}</span>
-            <span>{{ category.name }}</span>
+            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3"
+                 :style="`background: linear-gradient(135deg, ${currentTheme.colors.success}20, ${currentTheme.colors.background})`">
+              <span class="text-xl">{{ category.icon }}</span>
+            </div>
+            <span :class="`text-[${currentTheme.colors.text}]`">{{ category.name }}</span>
           </div>
           <div class="text-right">
-            <p class="font-semibold">{{ formatAmount(category.amount) }}</p>
-            <p class="text-xs text-gray-500">{{ category.percentage.toFixed(1) }}%</p>
+            <p class="font-semibold" :class="`text-[${currentTheme.colors.success}]`">
+              {{ formatAmount(category.amount) }}
+            </p>
+            <p class="text-xs" :class="`text-[${currentTheme.colors.textLight}]`">
+              {{ category.percentage.toFixed(1) }}%
+            </p>
           </div>
         </div>
       </div>
@@ -117,7 +181,8 @@ import { Line } from 'vue-chartjs'
 import { Doughnut as DoughnutChart } from 'vue-chartjs'
 import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
 import { useSupabaseAuth } from '~/composables/useSupabaseAuth'
-
+import { useTheme } from '~/composables/useTheme'
+const { currentTheme } = useTheme();
 // 註冊 Chart.js 組件
 ChartJS.register(
   CategoryScale,
@@ -208,40 +273,105 @@ const lineChartData = computed(() => {
       {
         label: '收入',
         data: incomeData,
-        borderColor: '#10B981',
-        backgroundColor: '#10B981',
-        tension: 0.1
+        borderColor: currentTheme.value.colors.success,
+        backgroundColor: `${currentTheme.value.colors.success}20`,
+        tension: 0.4
       },
       {
         label: '支出',
         data: expenseData,
-        borderColor: '#EF4444',
-        backgroundColor: '#EF4444',
-        tension: 0.1
+        borderColor: currentTheme.value.colors.error,
+        backgroundColor: `${currentTheme.value.colors.error}20`,
+        tension: 0.4
       },
       {
         label: '結餘',
         data: balanceData,
-        borderColor: '#3B82F6',
-        backgroundColor: '#3B82F6',
-        tension: 0.1
+        borderColor: currentTheme.value.colors.primary,
+        backgroundColor: `${currentTheme.value.colors.primary}20`,
+        tension: 0.4
       }
     ]
   }
 })
 
-const lineChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: true,
-      position: 'top' as const
+const getLineChartOptions = () => {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top' as const,
+        labels: {
+          color: currentTheme.value.colors.text,
+          usePointStyle: true,
+          padding: 20,
+          font: {
+            weight: 'bold',
+            size: 12
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: `${currentTheme.value.colors.text}15`,
+          drawBorder: true,
+          borderWidth: 1,
+          borderColor: `${currentTheme.value.colors.text}30`
+        },
+        ticks: {
+          color: currentTheme.value.colors.text,
+          font: {
+            weight: '500'
+          },
+          padding: 8
+        }
+      },
+      x: {
+        grid: {
+          display: false
+        },
+        ticks: {
+          color: currentTheme.value.colors.text,
+          font: {
+            weight: '500'
+          },
+          padding: 8
+        }
+      }
+    },
+    elements: {
+      line: {
+        borderWidth: 3,
+      },
+      point: {
+        radius: 4,
+        borderWidth: 2,
+        backgroundColor: currentTheme.value.colors.surface
+      }
     }
-  },
-  scales: {
-    y: {
-      beginAtZero: true
+  }
+}
+
+const getDoughnutChartOptions = () => {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
+    cutout: '65%',
+    elements: {
+      arc: {
+        borderWidth: 1,
+        borderColor: currentTheme.value.colors.surface
+      }
     }
   }
 }
@@ -339,16 +469,6 @@ const incomeChartData = computed(() => {
   }
 })
 
-const doughnutChartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false
-    }
-  }
-}
-
 // 工具函數
 const formatAmount = (amount: number) => {
   return amount.toLocaleString('zh-TW', {
@@ -366,4 +486,43 @@ const previousMonth = () => {
 const nextMonth = () => {
   currentMonth.value = dayjs(currentMonth.value).add(1, 'month').format('YYYY-MM')
 }
-</script> 
+</script>
+
+<style scoped>
+/* 添加全局陰影效果 */
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+              0 4px 6px -2px rgba(0, 0, 0, 0.05),
+              0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+/* 確保圖表容器有更好的可見度 */
+.chart-container {
+  position: relative;
+  backdrop-filter: blur(8px);
+}
+
+/* 優化觸控體驗 */
+@media (max-width: 768px) {
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .space-y-6 > * + * {
+    margin-top: 1.75rem;
+  }
+}
+
+/* 添加滑動效果 */
+.chart-fade-enter-active,
+.chart-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.chart-fade-enter-from,
+.chart-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+</style>

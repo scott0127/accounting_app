@@ -1,156 +1,216 @@
-import { ref } from 'vue'
-import { Preferences } from '@capacitor/preferences'
+import { ref } from "vue";
+import { Preferences } from "@capacitor/preferences";
 
 export interface Theme {
-  id: string
-  name: string
+  id: string;
+  name: string;
   colors: {
-    primary: string
-    secondary: string
-    accent: string
-    background: string
-    surface: string
-    text: string
-    textLight: string
-    success: string
-    error: string
-    chart: string[]
-  }
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    surface: string;
+    text: string;
+    textLight: string;
+    success: string;
+    error: string;
+    chart: string[];
+  };
 }
 
 const themes: Theme[] = [
   {
-    id: 'default',
-    name: '湛藍天空',
+    id: "default",
+    name: "湛藍天空",
     colors: {
-      primary: '#3B82F6',
-      secondary: '#60A5FA',
-      accent: '#6366F1',
-      background: '#F8FAFC',
-      surface: '#FFFFFF',
-      text: '#1E293B',
-      textLight: '#64748B',
-      success: '#10B981',
-      error: '#F43F5E',
-      chart: ['#3B82F6', '#6366F1', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444']
-    }
+      primary: "#2563EB", // 更深的藍，現代感更強
+      secondary: "#60A5FA",
+      accent: "#38BDF8", // 亮藍 accent
+      background: "#F1F5F9", // 柔和灰白
+      surface: "#FFFFFF",
+      text: "#1E293B",
+      textLight: "#64748B",
+      success: "#22C55E",
+      error: "#EF4444",
+      chart: ["#2563EB", "#38BDF8", "#60A5FA", "#22C55E", "#F59E42", "#EF4444"],
+    },
   },
   {
-    id: 'dark',
-    name: '深夜星空',
+    id: "dark",
+    name: "深夜星空",
     colors: {
-      primary: '#60A5FA',
-      secondary: '#818CF8',
-      accent: '#A78BFA',
-      background: '#0F172A',
-      surface: '#1E293B',
-      text: '#F8FAFC',
-      textLight: '#94A3B8',
-      success: '#34D399',
-      error: '#FB7185',
-      chart: ['#60A5FA', '#818CF8', '#A78BFA', '#34D399', '#FBBF24', '#FB7185']
-    }
+      primary: "#60A5FA", // 藍色主色（星空藍）
+      secondary: "#818CF8", // 藍紫色（星雲紫）
+      accent: "#FACC15", // 金黃色（星光點綴）
+      background: "#181A20", // 深夜黑（主背景）
+      surface: "#232634", // 深灰藍（卡片/區塊背景）
+      text: "#F1F5F9", // 主要文字（高對比白）
+      textLight: "#94A3B8", // 次要文字（淺灰藍）
+      success: "#22C55E", // 綠色（收入/正向）
+      error: "#EF4444", // 紅色（支出/錯誤）
+      chart: [
+        "#3B82F6", // 藍
+        "#60A5FA", // 淺藍
+        "#818CF8", // 藍紫
+        "#22C55E", // 綠
+        "#FACC15", // 黃
+        "#EF4444", // 紅
+      ],
+    },
   },
   {
-    id: 'nature',
-    name: '清新綠野',
+    id: "coffee-dark",
+    name: "咖啡黑暗",
     colors: {
-      primary: '#059669',
-      secondary: '#10B981',
-      accent: '#34D399',
-      background: '#F0FDF4',
-      surface: '#FFFFFF',
-      text: '#064E3B',
-      textLight: '#047857',
-      success: '#059669',
-      error: '#E11D48',
-      chart: ['#059669', '#10B981', '#047857', '#34D399', '#059669', '#065F46']
-    }
+      primary: "#8D6748", // 咖啡棕（主色，按鈕/重點）
+      secondary: "#BCA18A", // 淺咖啡（輔助/標籤）
+      accent: "#D6CCC2", // 米白（點綴/hover）
+      background: "#181818", // 幾乎純黑（主背景）
+      surface: "#23201D", // 深咖啡灰（卡片/區塊）
+      text: "#F4F4F4", // 幾乎純白（主文字）
+      textLight: "#BCA18A", // 淺咖啡（次要文字）
+      success: "#8D6748", // 咖啡棕（不強調）
+      error: "#6B4F3A", // 深咖啡（錯誤/警告）
+      chart: [
+        "#8D6748", // 咖啡棕
+        "#BCA18A", // 淺咖啡
+        "#23201D", // 深咖啡灰
+        "#D6CCC2", // 米白
+        "#6B4F3A", // 深咖啡
+        "#F4F4F4", // 白
+      ],
+    },
   },
   {
-    id: 'warm',
-    name: '暖陽時光',
+    id: "minimal-dark",
+    name: "極簡暗黑",
     colors: {
-      primary: '#F97316',
-      secondary: '#FB923C',
-      accent: '#FDBA74',
-      background: '#FFF7ED',
-      surface: '#FFFFFF',
-      text: '#7C2D12',
-      textLight: '#9A3412',
-      success: '#16A34A',
-      error: '#DC2626',
-      chart: ['#F97316', '#FB923C', '#FDBA74', '#F59E0B', '#EAB308', '#CA8A04']
-    }
+      primary: "#E0E0E0", // 主色（亮灰，按鈕/重點/主文字）
+      secondary: "#B0B0B0", // 次要色（中灰，輔助/次要文字）
+      accent: "#888888", // 點綴（軟灰，icon/hover/小按鈕）
+      background: "#121212", // 主背景（深黑）
+      surface: "#1A1A1A", // 卡片/區塊（比背景稍亮一點的黑）
+      text: "#E0E0E0", // 主文字（亮灰）
+      textLight: "#B0B0B0", // 次要文字（中灰）
+      success: "#888888", // 成功（用軟灰，不強調）
+      error: "#444444", // 錯誤（深灰，不強調）
+      chart: [
+        "#E0E0E0", // 亮灰
+        "#B0B0B0", // 中灰
+        "#888888", // 軟灰
+        "#444444", // 深灰
+        "#1A1A1A", // 更深灰
+        "#E0E0E0", // 亮灰
+      ],
+    },
   },
   {
-    id: 'berry',
-    name: '莓果甜心',
+    id: "warm-dark",
+    name: "溫暖暗色",
     colors: {
-      primary: '#DB2777',
-      secondary: '#EC4899',
-      accent: '#F472B6',
-      background: '#FDF2F8',
-      surface: '#FFFFFF',
-      text: '#831843',
-      textLight: '#BE185D',
-      success: '#10B981',
-      error: '#DC2626',
-      chart: ['#DB2777', '#EC4899', '#F472B6', '#A21CAF', '#C026D3', '#E879F9']
-    }
+      primary: "#F5E8D8", // 主文字（暖米色）
+      secondary: "#DAA520", // 次要色（金黃）
+      accent: "#FF6F61", // 主要點綴（珊瑚橘）
+      background: "#1C1C1C", // 主背景（柔黑）
+      surface: "#23201D", // 卡片/區塊（深咖啡灰，與背景有層次）
+      text: "#F5E8D8", // 主文字（暖米色）
+      textLight: "#DAA520", // 次要文字（金黃）
+      success: "#DAA520", // 成功（用金黃）
+      error: "#FF4500", // 錯誤（用珊瑚橘）
+      chart: [
+        "#FF6F61", // 珊瑚橘
+        "#DAA520", // 金黃
+        "#F5E8D8", // 米色
+        "#FF4500", // 焦橘
+        "#23201D", // 深咖啡
+        "#1C1C1C", // 柔黑
+      ],
+    },
   },
   {
-    id: 'ocean',
-    name: '海洋之心',
+    id: "warm",
+    name: "暖陽時光",
     colors: {
-      primary: '#0891B2',
-      secondary: '#06B6D4',
-      accent: '#22D3EE',
-      background: '#ECFEFF',
-      surface: '#FFFFFF',
-      text: '#155E75',
-      textLight: '#0E7490',
-      success: '#10B981',
-      error: '#E11D48',
-      chart: ['#0891B2', '#06B6D4', '#22D3EE', '#0284C7', '#0369A1', '#0EA5E9']
-    }
-  }
-]
+      primary: "#F59E42", // 橘黃
+      secondary: "#B45309", // 深琥珀（對比）
+      accent: "#FFF7ED", // 柔和米白
+      background: "#FFF7ED", // 米白
+      surface: "#FFFFFF", // 白
+      text: "#7C2D12", // 深棕（高對比）
+      textLight: "#F59E42", // 橘黃
+      success: "#22C55E", // 綠
+      error: "#EF4444", // 紅
+      chart: ["#F59E42", "#FBBF24", "#B45309", "#FDE68A", "#EAB308", "#EF4444"],
+    },
+  },
+  {
+    id: "berry",
+    name: "莓果甜心",
+    colors: {
+      primary: "#E11D48", // 莓紅
+      secondary: "#7C3AED", // 紫莓（對比）
+      accent: "#B70620", // 淡粉
+      background: "#FDF2F8", // 淡粉
+      surface: "#FFFFFF", // 白
+      text: "#831843", // 深莓紅（高對比）
+      textLight: "#FE2A74", // 粉紅
+      success: "#22C55E", // 綠
+      error: "#EF4444", // 紅
+      chart: ["#E11D48", "#F472B6", "#7C3AED", "#A21CAF", "#C026D3", "#EF4444"],
+    },
+  },
+  {
+    id: "ocean",
+    name: "海洋之心",
+    colors: {
+      primary: "#0EA5E9", // 藍
+      secondary: "#155E75", // 深藍（對比）
+      accent: "#000000", // 淺藍
+      background: "#ECFEFF", // 極淺藍
+      surface: "#FFFFFF", // 白
+      text: "#155E75", // 深藍（高對比）
+      textLight: "#38BDF8", // 淺藍
+      success: "#22C55E", // 綠
+      error: "#EF4444", // 紅
+      chart: ["#0EA5E9", "#155E75", "#38BDF8", "#A5F3FC", "#0284C7", "#EF4444"],
+    },
+  },
+];
 
+const currentTheme = ref<Theme>(themes[0]); // module-scope 單例
 export const useTheme = () => {
-  const currentTheme = ref<Theme>(themes[0])
   const setTheme = async (themeId: string) => {
-    const theme = themes.find(t => t.id === themeId)
+    const theme = themes.find((t) => t.id === themeId);
     if (theme) {
-      currentTheme.value = theme
-      await Preferences.set({ key: 'theme', value: themeId })
-      
+      currentTheme.value = theme;
+      await Preferences.set({ key: "theme", value: themeId });
+
       // 更新 CSS 變數
-      const root = document.documentElement
+      const root = document.documentElement;
       Object.entries(theme.colors).forEach(([key, value]) => {
-        if (typeof value === 'string') {
-          root.style.setProperty(`--color-${key}`, value)
-        } else if (Array.isArray(value) && key === 'chart') {
+        if (typeof value === "string") {
+          root.style.setProperty(`--color-${key}`, value);
+        } else if (Array.isArray(value) && key === "chart") {
           // 設定圖表顏色
           value.forEach((color, index) => {
-            root.style.setProperty(`--color-chart-${index + 1}`, color)
-          })
+            root.style.setProperty(`--color-chart-${index + 1}`, color);
+          });
         }
-      })
+      });
     }
-  }
+  };
 
   const initTheme = async () => {
-    const { value } = await Preferences.get({ key: 'theme' })
+    const { value } = await Preferences.get({ key: "theme" });
     if (value) {
-      await setTheme(value)
+      await setTheme(value);
     }
-  }
+  };
 
   return {
     themes,
     currentTheme,
     setTheme,
-    initTheme
-  }
-}
+    initTheme,
+  };
+};
