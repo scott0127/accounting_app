@@ -19,12 +19,18 @@ export default defineNuxtConfig({
       title: '簡單記帳',
       meta: [
         { charset: 'utf-8' },
-        { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui' },
         { name: 'description', content: '簡單好用的記帳 App' },
+        // iOS
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'apple-mobile-web-app-title', content: '簡單記帳' },
+        // Android
         { name: 'mobile-web-app-capable', content: 'yes' },
-        { name: 'theme-color', content: '#2563eb' }
+        { name: 'theme-color', content: '#2563eb' },
+        { name: 'application-name', content: '簡單記帳' },
+        // PWA
+        { name: 'display-mode', content: 'standalone' }
       ],
       link: [
         {
@@ -48,19 +54,38 @@ export default defineNuxtConfig({
       theme_color: '#2563eb',
       background_color: '#ffffff',
       display: 'standalone',
-      start_url: '/',
+      orientation: 'portrait',
+      start_url: '/?standalone=true',
+      id: '/',
+      scope: '/',
       icons: [
         {
           src: '/pwa-192x192.png',
           sizes: '192x192',
-          type: 'image/png'
+          type: 'image/png',
+          purpose: 'any maskable'
         },
         {
           src: '/pwa-512x512.png',
           sizes: '512x512',
-          type: 'image/png'
+          type: 'image/png',
+          purpose: 'any maskable'
         }
       ]
+    },
+    workbox: {
+      navigateFallback: '/',
+      globPatterns: ['**/*.{js,css,html,png,svg,ico}']
+    },
+    client: {
+      installPrompt: true,
+      // 每小時檢查更新
+      periodicSyncForUpdates: 3600
+    },
+    // 確保 service worker 正確註冊
+    devOptions: {
+      enabled: true,
+      type: 'module'
     }
   },
   pinia: {
