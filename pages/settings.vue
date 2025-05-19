@@ -32,7 +32,7 @@
           class="group relative p-4 rounded-xl border-2 transition-all duration-300 hover:scale-105"
           :class="theme.id === currentTheme.id ? 'shadow-lg transform scale-105' : ''"
           :style="{
-            backgroundColor: theme.colors.surface,
+            background: `linear-gradient(135deg, ${theme.colors.surface} 20%, ${theme.colors.primary}20)`,
             borderColor: theme.id === currentTheme.id ? theme.colors.primary : 'transparent'
           }"
           @click="setTheme(theme.id)"
