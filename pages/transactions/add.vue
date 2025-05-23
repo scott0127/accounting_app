@@ -109,13 +109,12 @@
           <p class="text-sm">{{ llmResult.description }}</p>
         </div>
       </div>
-      
-      <!-- 手動類別選擇 -->
+        <!-- 手動類別選擇 -->
       <div v-if="showManualCategorySelector" class="bg-white rounded-xl shadow-sm p-4">
         <label class="block text-sm text-gray-600 mb-4">選擇類別</label>
         <div class="grid grid-cols-4 gap-4">
           <button
-            v-for="category in expenseCategories"
+            v-for="category in (llmResult?.type === 'income' ? incomeCategories : expenseCategories)"
             :key="category.id"
             type="button"
             class="flex flex-col items-center p-2 rounded-lg transition-colors"
@@ -320,8 +319,15 @@ const note = ref('')
 
 // AI 記帳模式數據
 const aiDescription = ref('')
-const classificationResult = ref(null)
-const llmResult = ref(null)
+const classificationResult = ref<any>(null)
+const llmResult = ref<{
+  type: 'income' | 'expense';
+  categoryId: string;
+  confidence: number;
+  description: string;
+  explanation: string;
+  errorMessage?: string;
+} | null>(null)
 const isProcessing = ref(false)
 const showManualCategorySelector = ref(false)
 const aiSelectedCategory = ref('')
@@ -356,20 +362,19 @@ const classifyWithLLMApi = async () => {
     // 設置類別
     if (!showManualCategorySelector.value || !aiSelectedCategory.value) {
       aiSelectedCategory.value = llmResult.value.categoryId;
-    }
-  } catch (error) {
+    }  } catch (error: unknown) {
     console.error('LLM classification failed:', error);
-    
     // 當LLM失敗時使用本地分類器
     classificationResult.value = classifyExpense(aiDescription.value);
     
     if (classificationResult.value) {
       llmResult.value = {
+        type: 'expense', // 本地分類器只支援支出
         categoryId: classificationResult.value.categoryId,
         confidence: classificationResult.value.confidence,
         description: aiDescription.value,
         explanation: '(本地分類) ' + classificationResult.value.explanation,
-        errorMessage: error.message || '分類失敗，請稍後再試'
+        errorMessage: error instanceof Error ? error.message : '分類失敗，請稍後再試'
       };
       
       aiSelectedCategory.value = classificationResult.value.categoryId;
@@ -471,31 +476,39 @@ const handleSubmitAI = async () => {
     await classifyWithLLMApi();
   }
 
+  // 如果還是沒有結果，返回
+  if (!llmResult.value) return;
+
   const finalCategoryId = showManualCategorySelector.value 
     ? aiSelectedCategory.value 
-    : llmResult.value.categoryId
+    : llmResult.value.categoryId;
+
+  // 找到對應的類別對象
+  const categoryList = llmResult.value.type === 'income' ? incomeCategories.value : expenseCategories.value;
+  const category = categoryList.find(c => c.id === finalCategoryId) || null;
     
   try {
-    // 添加交易，使用LLM生成的備註
+    // 添加交易，使用LLM生成的備註和類型
     await addTransaction({
       amount: extractedAmount.value,
-      type: 'expense',
-      category_id: finalCategoryId,  // 使用 category_id 而不是 category
+      type: llmResult.value.type,
+      category_id: finalCategoryId,
+      category: category,
       date: date.value,
-      description: llmResult.value?.description || aiDescription.value
-    })
+      description: llmResult.value.description || aiDescription.value
+    });
     
     // 如果是手動選擇了類別，記住這個更正
     if (showManualCategorySelector.value && 
-        finalCategoryId !== llmResult.value?.categoryId) {
-      rememberCorrection(aiDescription.value, finalCategoryId)
+        finalCategoryId !== llmResult.value.categoryId) {
+      rememberCorrection(aiDescription.value, finalCategoryId);
     }
 
     // 成功後導航到交易列表
-    router.push('/transactions')
-  } catch (error) {
-    console.error('Failed to add transaction:', error)
-    alert(`新增記錄失敗: ${error.message || '請稍後再試'}`)
+    router.push('/transactions');
+  } catch (error: unknown) {
+    console.error('Failed to add transaction:', error);
+    alert(`新增記錄失敗: ${error instanceof Error ? error.message : '請稍後再試'}`);
   }
 }
 
