@@ -1,5 +1,16 @@
-import { useTransactionStore } from '~/stores/transaction'
-import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
+// @ts-ignore
+import { useSupabase } from './useSupabase'
+import type { Database } from '~/types/supabase'
+
+// Get the supabase client instance
+const supabase = useSupabase()
+
+type Transaction = Database['public']['Tables']['transactions']['Row']
+type Category = Database['public']['Tables']['categories']['Row']
+
+export type TransactionWithCategory = Transaction & {
+  category?: Category
+}
 
 export interface TransactionSummary {
   totalIncome: number;
@@ -38,9 +49,34 @@ export interface LLMSummaryResult {
 /**
  * A composable function that provides LLM-powered financial analysis and suggestions
  */
+// Helper function that can be used independently
+export const analyzeTransactions = async (startDate: string, endDate: string, question: string) => {
+  const { fetchTransactions, getFinancialAnalysis } = useLLMSummary()
+  try {
+    const transactions = await fetchTransactions(startDate, endDate)
+    return await getFinancialAnalysis(transactions, startDate, endDate, question)
+  } catch (error) {
+    console.error('Analysis error:', error)
+    throw new Error('分析交易記錄時發生錯誤: ' + (error instanceof Error ? error.message : '未知錯誤'))
+  }
+}
+
 export function useLLMSummary() {
-  const store = useTransactionStore()
-  const { categories } = useSupabaseTransactions()
+  // Helper to fetch transactions with categories
+  const fetchTransactions = async (startDate: string, endDate: string): Promise<TransactionWithCategory[]> => {
+    const { data: transactions, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching transactions:', error)
+      throw new Error('無法載入交易記錄')
+    }
+    return transactions as unknown as TransactionWithCategory[]
+  }
 
   const getMonthsBetween = (startDate: string, endDate: string): number => {
     const start = new Date(startDate);
@@ -52,7 +88,7 @@ export function useLLMSummary() {
   /**
    * Generate a summary of transactions for a given period
    */
-  const generateTransactionSummary = (transactions: any[], startDate: string, endDate: string): TransactionSummary => {
+  const generateTransactionSummary = (transactions: TransactionWithCategory[], startDate: string, endDate: string): TransactionSummary => {
     const summary: TransactionSummary = {
       totalIncome: 0,
       totalExpense: 0,
@@ -66,35 +102,50 @@ export function useLLMSummary() {
     const categoryTotals = new Map();
     
     transactions.forEach(transaction => {
-      const key = `${transaction.type}-${transaction.category_id}`;
+      const categoryId = transaction.category_id || 'uncategorized';
+      const key = `${transaction.type}-${categoryId}`;
       const current = categoryTotals.get(key) || 0;
-      categoryTotals.set(key, current + transaction.amount);
+      const amount = transaction.amount || 0;
+      
+      categoryTotals.set(key, current + amount);
       
       if (transaction.type === 'income') {
-        summary.totalIncome += transaction.amount;
+        summary.totalIncome += amount;
       } else {
-        summary.totalExpense += transaction.amount;
+        summary.totalExpense += amount;
       }
     });
 
     // Calculate top categories
     const expenseCategories = Array.from(categoryTotals.entries())
       .filter(([key]) => key.startsWith('expense'))
-      .map(([key, amount]) => ({
-        category: categories.value?.find(c => c.id === key.split('-')[1])?.name || '未分類',
-        amount,
-        percentage: (amount / summary.totalExpense) * 100
-      }))
+      .map(([key, amount]) => {
+        const categoryId = key.split('-')[1];
+        const transaction = transactions.find(t => t.category_id === categoryId);
+        const categoryName = transaction?.category?.name || '未分類';
+        
+        return {
+          category: categoryName,
+          amount,
+          percentage: summary.totalExpense > 0 ? (amount / summary.totalExpense) * 100 : 0
+        };
+      })
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
 
     const incomeCategories = Array.from(categoryTotals.entries())
       .filter(([key]) => key.startsWith('income'))
-      .map(([key, amount]) => ({
-        category: categories.value?.find(c => c.id === key.split('-')[1])?.name || '未分類',
-        amount,
-        percentage: (amount / summary.totalIncome) * 100
-      }))
+      .map(([key, amount]) => {
+        const categoryId = key.split('-')[1];
+        const transaction = transactions.find(t => t.category_id === categoryId);
+        const categoryName = transaction?.category?.name || '未分類';
+        
+        return {
+          category: categoryName,
+          amount,
+          percentage: summary.totalIncome > 0 ? (amount / summary.totalIncome) * 100 : 0
+        };
+      })
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
 
@@ -190,7 +241,7 @@ ${summary.topIncomeCategories.map(c =>
    * Get financial analysis and suggestions based on transaction history
    */
   const getFinancialAnalysis = async (
-    transactions: any[],
+    transactions: TransactionWithCategory[],
     startDate: string,
     endDate: string,
     question: string
@@ -198,34 +249,35 @@ ${summary.topIncomeCategories.map(c =>
     try {
       const summary = generateTransactionSummary(transactions, startDate, endDate);
       const prompt = buildAnalysisPrompt(summary, question);
-      const config = useRuntimeConfig();
+      const config = useRuntimeConfig()
+      
+      // Ensure we have transactions
+      if (!transactions || transactions.length === 0) {
+        throw new Error('沒有找到任何交易記錄')
+      }
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Call OpenAI API directly
+      const response = await $fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${config.public.openaiApiKey}`
         },
-        body: JSON.stringify({
-          model: "gpt-4",
+        body: {
+          model: 'gpt-4',
           messages: [
             { 
-              role: "system", 
-              content: "你是一個親切的個人財務助理，專門提供個人化的理財建議。請根據使用者的消費習慣和喜好，提供具體且實用的建議。" 
+              role: 'system', 
+              content: '你是一個親切的個人財務助理，專門提供個人化的理財建議。請根據使用者的消費習慣和喜好，提供具體且實用的建議。'
             },
-            { role: "user", content: prompt }
+            { role: 'user', content: prompt }
           ],
-          temperature: 0.7, // 稍微提高創意度
+          temperature: 0.7,
           max_tokens: 1000
-        })
-      });
+        }
+      }) as any;
 
-      if (!response.ok) {
-        throw new Error('API請求失敗');
-      }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content;
+      const content = response.choices[0]?.message?.content;
       
       if (!content) {
         throw new Error('回應格式錯誤');
@@ -274,6 +326,7 @@ ${summary.topIncomeCategories.map(c =>
   };
 
   return {
-    getFinancialAnalysis
+    getFinancialAnalysis,
+    fetchTransactions
   };
 }

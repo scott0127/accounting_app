@@ -221,21 +221,7 @@
       </div>
     </div>
 
-    <!-- 浮動添加按鈕 - 重新設計，增加吸引力 -->
-    <div class="fixed bottom-8 right-8 z-30">
-      <button 
-        @click="router.push('/transactions/add')" 
-        class="w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 transform hover:scale-110"
-        :class="`bg-[${currentTheme.colors.primary}] text-white hover:shadow-xl`"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-        </svg>
-        
-        <!-- 浮動效果 -->
-        <span class="absolute inset-0 rounded-full animate-ping opacity-25" :class="`bg-[${currentTheme.colors.primary}]`"></span>
-      </button>
-    </div>
+    
 
     <!-- 編輯交易對話框 -->
     <TransactionModal
@@ -271,6 +257,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useTransactionStore } from '~/stores/transaction'
 import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
 import dayjs from 'dayjs'

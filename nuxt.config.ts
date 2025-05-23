@@ -5,7 +5,7 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@nuxtjs/tailwindcss',
     '@vueuse/nuxt',
-    '@vite-pwa/nuxt'
+    '@vite-pwa/nuxt',
   ],
   runtimeConfig: {
     public: {

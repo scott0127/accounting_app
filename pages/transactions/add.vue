@@ -10,7 +10,7 @@
     </div>
 
     <!-- 模式選擇 -->
-    <div class="grid grid-cols-3 gap-2 mb-6">
+    <div class="grid grid-cols-4 gap-2 mb-6">
       <button 
         @click="mode = 'ai'"
         :class="[
@@ -19,6 +19,15 @@
         ]"
       >
         AI記帳
+      </button>
+      <button 
+        @click="mode = 'ai-suggestion'"
+        :class="[
+          'py-2 rounded-lg font-medium transition-colors text-center text-sm',
+          mode === 'ai-suggestion' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+        ]"
+      >
+        AI建議
       </button>
       <button 
         @click="mode = 'expense'"
@@ -159,8 +168,138 @@
       </button>
     </form>
 
+    <!-- AI 建議模式 -->
+    <div v-else-if="mode === 'ai-suggestion'" class="space-y-6">
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <h3 class="text-lg font-medium mb-4">財務分析與建議</h3>
+        
+        <!-- 日期範圍選擇 -->
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">開始日期</label>
+            <input
+              v-model="startDate"
+              type="date"
+              class="w-full p-2 border rounded-lg"
+              :max="endDate"
+            />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">結束日期</label>
+            <input
+              v-model="endDate"
+              type="date"
+              class="w-full p-2 border rounded-lg"
+              :min="startDate"
+              :max="today"
+            />
+          </div>
+        </div>
+
+        <!-- 問題輸入 -->
+        <div class="mb-4">
+          <label class="block text-sm text-gray-600 mb-1">您想了解什麼？</label>
+          <input
+            v-model="aiSuggestionQuestion"
+            type="text"
+            class="w-full p-2 border rounded-lg"
+            placeholder="例如：請分析我的消費習慣並提供建議"
+          />
+        </div>
+
+        <!-- 生成按鈕 -->
+        <button
+          @click="generateAISuggestion"
+          class="w-full bg-blue-500 text-white py-2 rounded-lg font-medium"
+          :disabled="isGeneratingSuggestion"
+        >
+          {{ isGeneratingSuggestion ? '分析中...' : '生成建議' }}
+        </button>
+      </div>
+
+      <!-- 分析結果 -->
+      <div v-if="aiSuggestionResult" class="space-y-6">
+        <!-- 分析摘要 -->
+        <div class="bg-white rounded-xl shadow-sm p-4">
+          <h4 class="font-medium mb-2">分析摘要</h4>
+          <p class="text-gray-700">{{ aiSuggestionResult.analysis }}</p>
+        </div>
+
+        <!-- 預算建議 -->
+        <div class="bg-white rounded-xl shadow-sm p-4">
+          <h4 class="font-medium mb-3">預算建議</h4>
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between mb-1">
+                <span>必要支出</span>
+                <span class="font-medium">{{ aiSuggestionResult.monthlyBudgetSuggestion.essentials }} 元</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  class="bg-blue-500 h-2 rounded-full" 
+                  :style="{ width: '70%' }"
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1">
+                <span>娛樂支出</span>
+                <span class="font-medium">{{ aiSuggestionResult.monthlyBudgetSuggestion.entertainment }} 元</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  class="bg-green-500 h-2 rounded-full" 
+                  :style="{ width: '20%' }"
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1">
+                <span>儲蓄</span>
+                <span class="font-medium">{{ aiSuggestionResult.monthlyBudgetSuggestion.savings }} 元</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  class="bg-yellow-500 h-2 rounded-full" 
+                  :style="{ width: '10%' }"
+                ></div>
+              </div>
+            </div>
+          </div>
+          <p class="mt-3 text-sm text-gray-600">{{ aiSuggestionResult.monthlyBudgetSuggestion.explanation }}</p>
+        </div>
+
+        <!-- 個人化建議 -->
+        <div class="bg-white rounded-xl shadow-sm p-4">
+          <h4 class="font-medium mb-3">個人化建議</h4>
+          <ul class="space-y-2">
+            <li v-for="(suggestion, index) in aiSuggestionResult.suggestions" :key="index" class="flex items-start">
+              <span class="text-blue-500 mr-2">•</span>
+              <span>{{ suggestion }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 節省潛力 -->
+        <div v-if="aiSuggestionResult.savingsPotential > 0" class="bg-white rounded-xl shadow-sm p-4">
+          <h4 class="font-medium mb-2">節省潛力</h4>
+          <p>根據分析，您每月可以節省約 <span class="font-medium text-green-600">{{ aiSuggestionResult.savingsPotential }} 元</span>。</p>
+          
+          <div v-if="aiSuggestionResult.riskAreas && aiSuggestionResult.riskAreas.length > 0" class="mt-3">
+            <h5 class="text-sm font-medium text-gray-700 mb-1">需要注意的風險領域：</h5>
+            <ul class="space-y-1">
+              <li v-for="(risk, index) in aiSuggestionResult.riskAreas" :key="index" class="flex items-start">
+                <span class="text-red-500 mr-2">•</span>
+                <span class="text-sm">{{ risk }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 支出模式 -->
-    <form v-if="mode === 'expense'" @submit.prevent="handleSubmitExpense" class="space-y-6">
+    <form v-else-if="mode === 'expense'" @submit.prevent="handleSubmitExpense" class="space-y-6">
       <!-- 金額輸入 -->
       <div class="bg-white rounded-xl shadow-sm p-4">
         <label class="block text-sm text-gray-600 mb-2">金額</label>
@@ -226,7 +365,7 @@
     </form>
 
     <!-- 收入模式 -->
-    <form v-if="mode === 'income'" @submit.prevent="handleSubmitIncome" class="space-y-6">
+    <form v-else-if="mode === 'income'" @submit.prevent="handleSubmitIncome" class="space-y-6">
       <!-- 金額輸入 -->
       <div class="bg-white rounded-xl shadow-sm p-4">
         <label class="block text-sm text-gray-600 mb-2">金額</label>
@@ -295,94 +434,66 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router' // Added for router.back()
 import { useTransactionStore } from '~/stores/transaction'
+import { analyzeTransactions, type LLMSummaryResult, type TransactionWithCategory } from '~/composables/useLLMSummary' // Consolidated and added LLMSummaryResult
 import { useExpenseClassifier } from '~/composables/useExpenseClassifier'
 import { useLLMClassifier } from '~/composables/useLLMClassifier'
 import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
 import dayjs from 'dayjs'
-
 
 const { addTransaction, categories: supabaseCategories, loading: transactionLoading, initialize } = useSupabaseTransactions()
 const router = useRouter()
 const store = useTransactionStore()
 const { classifyExpense, rememberCorrection } = useExpenseClassifier()
 const { classifyWithLLM } = useLLMClassifier()
+// analyzeTransactions 已經直接導入使用
 
 // 記帳模式
-const mode = ref<'ai' | 'expense' | 'income'>('expense')
-
-// 表單數據
-const amount = ref('')
-const selectedCategory = ref('')
-const date = ref(dayjs().format('YYYY-MM-DD'))
-const note = ref('')
-
-// AI 記帳模式數據
-const aiDescription = ref('')
-const classificationResult = ref<any>(null)
-const llmResult = ref<{
-  type: 'income' | 'expense';
-  categoryId: string;
-  confidence: number;
-  description: string;
-  explanation: string;
-  errorMessage?: string;
-} | null>(null)
+const mode = ref<'ai' | 'ai-suggestion' | 'expense' | 'income'>('ai')
 const isProcessing = ref(false)
 const showManualCategorySelector = ref(false)
+const aiDescription = ref('')
+const amount = ref('')
+const date = ref(dayjs().format('YYYY-MM-DD'))
+const selectedCategory = ref('')
 const aiSelectedCategory = ref('')
-const extractedAmount = computed(() => extractAmountFromDescription(aiDescription.value))
+const extractedAmount = ref(0)
+const llmResult = ref<any>(null)
 
-// 防抖函數
-let debounceTimeout: NodeJS.Timeout | null = null;
+// AI Suggestion state
+const startDate = ref(dayjs().subtract(1, 'month').format('YYYY-MM-DD'))
+const endDate = ref(dayjs().format('YYYY-MM-DD'))
+const aiSuggestionQuestion = ref('請分析我的消費習慣並提供建議')
+const aiSuggestionResult = ref<LLMSummaryResult | null>(null)
+const isGeneratingSuggestion = ref(false)
 
-// 調用 LLM 分類 API
-const classifyWithLLMApi = async () => {
-  if (!aiDescription.value.trim()) return;
-  
-  try {
-    isProcessing.value = true;
-    
-    // 優先使用真實 LLM 分類
-    llmResult.value = await classifyWithLLM(aiDescription.value);
-    
-    // 如果 LLM API 失敗，使用本地分類器作為後備
-    if (llmResult.value.confidence < 30) {
-      classificationResult.value = classifyExpense(aiDescription.value);
-      
-      // 使用關鍵詞分類器覆蓋結果
-      llmResult.value = {
-        ...llmResult.value,
-        categoryId: classificationResult.value.categoryId,
-        confidence: classificationResult.value.confidence,
-        explanation: '(本地分類) ' + classificationResult.value.explanation
-      };
-    }
-    
-    // 設置類別
-    if (!showManualCategorySelector.value || !aiSelectedCategory.value) {
-      aiSelectedCategory.value = llmResult.value.categoryId;
-    }  } catch (error: unknown) {
-    console.error('LLM classification failed:', error);
-    // 當LLM失敗時使用本地分類器
-    classificationResult.value = classifyExpense(aiDescription.value);
-    
-    if (classificationResult.value) {
-      llmResult.value = {
-        type: 'expense', // 本地分類器只支援支出
-        categoryId: classificationResult.value.categoryId,
-        confidence: classificationResult.value.confidence,
-        description: aiDescription.value,
-        explanation: '(本地分類) ' + classificationResult.value.explanation,
-        errorMessage: error instanceof Error ? error.message : '分類失敗，請稍後再試'
-      };
-      
-      aiSelectedCategory.value = classificationResult.value.categoryId;
-    }
-  } finally {
-    isProcessing.value = false;
+// Generate AI Suggestion
+const generateAISuggestion = async () => {
+  if (!startDate.value || !endDate.value) {
+    alert('請選擇日期範圍')
+    return
   }
-};
+
+  try {
+    isGeneratingSuggestion.value = true
+    
+    // 使用 analyzeTransactions 自動獲取交易並生成分析
+    const result = await analyzeTransactions(
+      startDate.value,
+      endDate.value,
+      aiSuggestionQuestion.value
+    )
+    
+    aiSuggestionResult.value = result
+  } catch (error) {
+    console.error('生成建議時出錯:', error)
+    const errorMessage = error instanceof Error ? error.message : '發生未知錯誤'
+    alert(`生成建議時出錯: ${errorMessage}`)
+  } finally {
+    isGeneratingSuggestion.value = false
+  }
+}
 
 // 計算屬性
 const today = computed(() => dayjs().format('YYYY-MM-DD'))
@@ -410,7 +521,6 @@ const resetForm = () => {
   amount.value = ''
   selectedCategory.value = ''
   date.value = dayjs().format('YYYY-MM-DD')
-  note.value = ''
   aiDescription.value = ''
   classificationResult.value = null
   llmResult.value = null
@@ -425,8 +535,14 @@ const resetForm = () => {
 }
 
 // 監視模式變化，重置表單
-watch(mode, () => {
-  resetForm()
+watch(mode, (newMode) => {
+  if (newMode !== 'ai-suggestion') {
+    resetForm()
+  } else {
+    // 初始化AI建議的日期範圍為最近一個月
+    startDate.value = dayjs().subtract(1, 'month').format('YYYY-MM-DD')
+    endDate.value = dayjs().format('YYYY-MM-DD')
+  }
 })
 
 // 驗證表單

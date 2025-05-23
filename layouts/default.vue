@@ -89,7 +89,6 @@
 import { useSupabaseAuth } from "~/composables/useSupabaseAuth";
 useSupabaseAuth();
 
-const router = useRouter();
 const { currentTheme } = useTheme();
 
 const toggleMenu = () => {
@@ -97,7 +96,7 @@ const toggleMenu = () => {
 };
 
 const navigateToAdd = () => {
-  router.push("/transactions/add");
+  navigateTo("/transactions/add");
 };
 </script>
 
