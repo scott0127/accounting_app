@@ -62,7 +62,19 @@ export const analyzeTransactions = async (startDate: string, endDate: string, qu
 }
 
 export function useLLMSummary() {
-  // Helper to fetch transactions with categories
+  // 取得所有分類
+  const fetchCategories = async (): Promise<Category[]> => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+    if (error) {
+      console.error('Error fetching categories:', error)
+      return []
+    }
+    return data as Category[]
+  }
+
+  // Helper to fetch transactions
   const fetchTransactions = async (startDate: string, endDate: string): Promise<TransactionWithCategory[]> => {
     const { data: transactions, error } = await supabase
       .from('transactions')
@@ -88,7 +100,7 @@ export function useLLMSummary() {
   /**
    * Generate a summary of transactions for a given period
    */
-  const generateTransactionSummary = (transactions: TransactionWithCategory[], startDate: string, endDate: string): TransactionSummary => {
+  const generateTransactionSummary = (transactions: TransactionWithCategory[], startDate: string, endDate: string, categories: Category[]): TransactionSummary => {
     const summary: TransactionSummary = {
       totalIncome: 0,
       totalExpense: 0,
@@ -100,15 +112,12 @@ export function useLLMSummary() {
 
     // Group transactions by category and type
     const categoryTotals = new Map();
-    
     transactions.forEach(transaction => {
       const categoryId = transaction.category_id || 'uncategorized';
       const key = `${transaction.type}-${categoryId}`;
       const current = categoryTotals.get(key) || 0;
       const amount = transaction.amount || 0;
-      
       categoryTotals.set(key, current + amount);
-      
       if (transaction.type === 'income') {
         summary.totalIncome += amount;
       } else {
@@ -121,9 +130,8 @@ export function useLLMSummary() {
       .filter(([key]) => key.startsWith('expense'))
       .map(([key, amount]) => {
         const categoryId = key.split('-')[1];
-        const transaction = transactions.find(t => t.category_id === categoryId);
-        const categoryName = transaction?.category?.name || '未分類';
-        
+        const category = categories.find(c => c.id === categoryId);
+        const categoryName = category?.name || '未分類';
         return {
           category: categoryName,
           amount,
@@ -137,9 +145,8 @@ export function useLLMSummary() {
       .filter(([key]) => key.startsWith('income'))
       .map(([key, amount]) => {
         const categoryId = key.split('-')[1];
-        const transaction = transactions.find(t => t.category_id === categoryId);
-        const categoryName = transaction?.category?.name || '未分類';
-        
+        const category = categories.find(c => c.id === categoryId);
+        const categoryName = category?.name || '未分類';
         return {
           category: categoryName,
           amount,
@@ -151,7 +158,6 @@ export function useLLMSummary() {
 
     summary.topExpenseCategories = expenseCategories;
     summary.topIncomeCategories = incomeCategories;
-
     return summary;
   };
 
@@ -247,7 +253,8 @@ ${summary.topIncomeCategories.map(c =>
     question: string
   ): Promise<LLMSummaryResult> => {
     try {
-      const summary = generateTransactionSummary(transactions, startDate, endDate);
+      const categories = await fetchCategories();
+      const summary = generateTransactionSummary(transactions, startDate, endDate, categories);
       const prompt = buildAnalysisPrompt(summary, question);
       const config = useRuntimeConfig()
       
