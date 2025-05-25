@@ -451,15 +451,21 @@ const { classifyWithLLM } = useLLMClassifier()
 
 // 記帳模式
 const mode = ref<'ai' | 'ai-suggestion' | 'expense' | 'income'>('ai')
+const aiDescription = ref('')
+const classificationResult = ref<any>(null)
+const llmResult = ref<{
+  type: 'income' | 'expense';
+  categoryId: string;
+  confidence: number;
+  description: string;
+  explanation: string;
+  errorMessage?: string;
+} | null>(null)
 const isProcessing = ref(false)
 const showManualCategorySelector = ref(false)
-const aiDescription = ref('')
-const amount = ref('')
-const date = ref(dayjs().format('YYYY-MM-DD'))
-const selectedCategory = ref('')
 const aiSelectedCategory = ref('')
-const extractedAmount = ref(0)
-const llmResult = ref<any>(null)
+let extractedAmount = ref(0)
+let debounceTimeout: any = null
 
 // AI Suggestion state
 const startDate = ref(dayjs().subtract(1, 'month').format('YYYY-MM-DD'))
@@ -515,6 +521,12 @@ const incomeCategories = computed(() => {
   // 否則使用 store 的類別作為後備
   return store.categories.filter(c => c.type === 'income')
 })
+
+// 表單數據
+const amount = ref('')
+const selectedCategory = ref('')
+const date = ref(dayjs().format('YYYY-MM-DD'))
+const note = ref('')
 
 // 重置表單
 const resetForm = () => {
@@ -583,44 +595,58 @@ const getCategoryName = (categoryId: string): string => {
   return storeCategory ? storeCategory.name : categoryId
 }
 
+// LLM 分類 API
+const classifyWithLLMApi = async () => {
+  if (!aiDescription.value) return;
+  isProcessing.value = true;
+  try {
+    llmResult.value = await classifyWithLLM(aiDescription.value);
+    // 設置金額
+    const matches = aiDescription.value.match(/\d+/)
+    extractedAmount.value = matches ? parseInt(matches[0]) : 0
+    // 設置類別
+    if (!showManualCategorySelector.value || !aiSelectedCategory.value) {
+      aiSelectedCategory.value = llmResult.value.categoryId;
+    }
+  } catch (error: unknown) {
+    console.error('LLM classification failed:', error);
+    // 當LLM失敗時使用本地分類器
+    classificationResult.value = classifyExpense(aiDescription.value);
+    if (classificationResult.value) {
+      llmResult.value = {
+        type: 'expense',
+        categoryId: classificationResult.value.categoryId,
+        confidence: classificationResult.value.confidence,
+        description: aiDescription.value,
+        explanation: '(本地分類) ' + classificationResult.value.explanation,
+        errorMessage: error instanceof Error ? error.message : '分類失敗，請稍後再試'
+      };
+      aiSelectedCategory.value = classificationResult.value.categoryId;
+    }
+  } finally {
+    isProcessing.value = false;
+  }
+}
+
 // 處理 AI 記帳提交
 const handleSubmitAI = async () => {
-  if (!isAIValid.value || isProcessing.value) return
-
-  // 如果沒有LLM結果，先獲取
-  if (!llmResult.value) {
-    await classifyWithLLMApi();
-  }
-
-  // 如果還是沒有結果，返回
-  if (!llmResult.value) return;
-
+  if (!aiDescription.value || !llmResult.value || isProcessing.value) return;
   const finalCategoryId = showManualCategorySelector.value 
     ? aiSelectedCategory.value 
     : llmResult.value.categoryId;
-
-  // 找到對應的類別對象
   const categoryList = llmResult.value.type === 'income' ? incomeCategories.value : expenseCategories.value;
   const category = categoryList.find(c => c.id === finalCategoryId) || null;
-    
   try {
-    // 添加交易，使用LLM生成的備註和類型
     await addTransaction({
       amount: extractedAmount.value,
       type: llmResult.value.type,
       category_id: finalCategoryId,
-      category: category,
       date: date.value,
       description: llmResult.value.description || aiDescription.value
     });
-    
-    // 如果是手動選擇了類別，記住這個更正
-    if (showManualCategorySelector.value && 
-        finalCategoryId !== llmResult.value.categoryId) {
+    if (showManualCategorySelector.value && finalCategoryId !== llmResult.value.categoryId) {
       rememberCorrection(aiDescription.value, finalCategoryId);
     }
-
-    // 成功後導航到交易列表
     router.push('/transactions');
   } catch (error: unknown) {
     console.error('Failed to add transaction:', error);
@@ -697,6 +723,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* 自定義日期選擇器樣式 */
