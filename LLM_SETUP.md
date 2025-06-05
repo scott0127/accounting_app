@@ -15,7 +15,7 @@
 2. 添加以下內容到文件中，替換 `your_openai_api_key_here` 為您剛剛獲取的 API 密鑰：
 
 ```
-VITE_OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 3. 重新啟動應用程序
