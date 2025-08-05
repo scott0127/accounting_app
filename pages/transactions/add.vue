@@ -72,8 +72,8 @@
             type="text"
             class="w-full text-lg focus:outline-none px-4 py-2 border border-gray-200 rounded-lg"
             placeholder="例如：午餐吃麥當勞100元"
-            @blur="classifyWithLLMApi"
-            @keyup.enter="classifyWithLLMApi"
+            @blur="classifyWithLLMApiStreaming"
+            @keyup.enter="classifyWithLLMApiStreaming"
             :disabled="isProcessing"
             required
           />
@@ -88,62 +88,90 @@
           </div>
         </div>
 
-        <!-- AI 分析結果 -->
-        <div v-if="llmResult" class="mt-2">
-          <div class="flex items-center justify-between">
-            <!-- 信心度指示器 -->
-            <div class="flex items-center space-x-2">
-              <span
-                class="text-xs px-2 py-0.5 rounded-full"
-                :class="
-                  llmResult.type === 'income'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'
-                "
-              >
-                {{ llmResult.type === "income" ? "收入" : "支出" }}
-              </span>
-              <span
-                class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full"
-              >
-                {{ getCategoryName(llmResult.categoryId) }}
-              </span>
-              <span
-                v-if="llmResult.confidence > 0"
-                class="text-xs text-gray-500"
-              >
-                ({{ llmResult.confidence }}% 信心度)
-              </span>
+        <!-- 即時 AI 分析結果 -->
+        <div v-if="intermediateResult || llmResult" class="mt-3">
+          <!-- 即時預覽結果 -->
+          <div v-if="intermediateResult && isProcessing" class="mb-2 p-2 bg-blue-50 rounded-lg border-l-2 border-blue-300">
+            <div class="flex items-center space-x-2 text-sm">
+              <span class="text-blue-600">🔍 AI 分析中...</span>
+              <div class="flex items-center space-x-1">
+                <span v-if="intermediateResult.type" 
+                      :class="intermediateResult.type === 'income' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'"
+                      class="px-2 py-0.5 rounded text-xs font-medium">
+                  {{ intermediateResult.type === "income" ? "收入" : "支出" }}
+                </span>
+                <span v-if="intermediateResult.categoryId" class="text-gray-600 text-xs">
+                  {{ getCategoryName(intermediateResult.categoryId) }}
+                </span>
+                <span v-if="intermediateResult.confidence" class="text-purple-600 text-xs">
+                  {{ intermediateResult.confidence }}%
+                </span>
+              </div>
             </div>
-
-            <!-- 手動選擇開關 -->
-            <button
-              v-if="!showManualCategorySelector"
-              @click="showManualCategorySelector = true"
-              type="button"
-              class="text-xs text-blue-600 underline"
-            >
-              手動選擇
-            </button>
-            <button
-              v-else
-              @click="showManualCategorySelector = false"
-              type="button"
-              class="text-xs text-gray-600 underline"
-            >
-              使用AI建議
-            </button>
           </div>
 
-          <p class="text-xs text-gray-500 mt-1">{{ llmResult.explanation }}</p>
-          <p v-if="llmResult.errorMessage" class="text-xs text-red-500 mt-1">
-            {{ llmResult.errorMessage }}
-          </p>
+          <!-- 最終分析結果 -->
+          <div v-if="llmResult && !isProcessing" class="space-y-2">
+            <div class="flex items-center justify-between">
+              <!-- 信心度指示器 -->
+              <div class="flex items-center space-x-2">
+                <span
+                  class="text-xs px-2 py-0.5 rounded-full"
+                  :class="
+                    llmResult.type === 'income'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-red-100 text-red-700'
+                  "
+                >
+                  {{ llmResult.type === "income" ? "收入" : "支出" }}
+                </span>
+                <span
+                  class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full"
+                >
+                  {{ getCategoryName(llmResult.categoryId) }}
+                </span>
+                <span
+                  v-if="llmResult.confidence > 0"
+                  class="text-xs text-gray-500"
+                >
+                  ({{ llmResult.confidence }}% 信心度)
+                </span>
+                <!-- 速度指示器 -->
+                <span v-if="llmResult.metadata?.processingTime" 
+                      class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
+                  ⚡ {{ llmResult.metadata.processingTime }}ms
+                </span>
+              </div>
+
+              <!-- 手動選擇開關 -->
+              <button
+                v-if="!showManualCategorySelector"
+                @click="showManualCategorySelector = true"
+                type="button"
+                class="text-xs text-blue-600 underline hover:text-blue-800 transition-colors"
+              >
+                手動選擇
+              </button>
+              <button
+                v-else
+                @click="showManualCategorySelector = false"
+                type="button"
+                class="text-xs text-gray-600 underline hover:text-gray-800 transition-colors"
+              >
+                使用AI建議
+              </button>
+            </div>
+
+            <p class="text-xs text-gray-500 mt-1">{{ llmResult.explanation }}</p>
+            <p v-if="llmResult.errorMessage" class="text-xs text-red-500 mt-1">
+              {{ llmResult.errorMessage }}
+            </p>
+          </div>
         </div>
 
         <!-- LLM生成的備注 -->
         <div
-          v-if="llmResult?.description"
+          v-if="llmResult?.description && !isProcessing"
           class="mt-3 p-2 bg-gray-50 rounded-lg"
         >
           <div class="flex justify-between">
@@ -790,7 +818,11 @@ const {
 const router = useRouter();
 const store = useTransactionStore();
 const { classifyExpense, rememberCorrection } = useExpenseClassifier();
-const { classifyWithLLM } = useLLMClassifier();
+const { 
+  classifyWithLLM, 
+  classifyStreaming, 
+  classifyIntelligent 
+} = useLLMClassifier();
 
 // 記帳模式
 const mode = ref<"ai" | "ai-suggestion" | "expense" | "income">("ai");
@@ -803,12 +835,22 @@ const llmResult = ref<{
   description: string;
   explanation: string;
   errorMessage?: string;
+  metadata?: {
+    processingTime?: number;
+    apiAttempts?: number;
+    fallbackUsed?: boolean;
+    confidenceFactors?: string[];
+  };
 } | null>(null);
 const isProcessing = ref(false);
 const showManualCategorySelector = ref(false);
 const aiSelectedCategory = ref("");
+const intermediateResult = ref<Partial<typeof llmResult.value> | null>(null);
 let extractedAmount = ref(0);
 let debounceTimeout: any = null;
+
+// AI 分析狀態（移除重複宣告）
+// analysisProgress 已在 useSmartFinancialAssistant 中提供
 
 // AI Suggestion state - 使用新的智能分析系統
 const startDate = ref(dayjs().subtract(1, "month").format("YYYY-MM-DD"));
@@ -1158,18 +1200,85 @@ const getCategoryName = (categoryId: string): string => {
   return storeCategory ? storeCategory.name : categoryId;
 };
 
-// LLM 分類 API
-const classifyWithLLMApi = async () => {
+// 新的流式 LLM 分類 API
+const classifyWithLLMApiStreaming = async () => {
   if (!aiDescription.value) return;
+  
+  // 清除之前的結果
+  intermediateResult.value = null;
+  llmResult.value = null;
   isProcessing.value = true;
+  
   try {
-    llmResult.value = await classifyWithLLM(aiDescription.value);
+    // 使用智能分類（自動選擇最佳方法）
+    const result = await classifyIntelligent(aiDescription.value, {
+      preferSpeed: false, // 優先體驗而非速度
+      onProgress: (stage, progress) => {
+        // analysisProgress 是只讀的，我們用本地變量
+        console.log(`🚀 AI 分類進度: ${stage} (${progress}%)`);
+      },
+      onIntermediateResult: (partial) => {
+        intermediateResult.value = partial;
+        console.log('🔍 中間結果:', partial);
+      }
+    });
+    
+    llmResult.value = result;
+    
     // 設置金額
     const matches = aiDescription.value.match(/\d+/);
     extractedAmount.value = matches ? parseInt(matches[0]) : 0;
+    
     // 設置類別
     if (!showManualCategorySelector.value || !aiSelectedCategory.value) {
-      aiSelectedCategory.value = llmResult.value.categoryId;
+      aiSelectedCategory.value = result.categoryId;
+    }
+    
+  } catch (error: unknown) {
+    console.error("LLM classification failed:", error);
+    
+    // 當LLM失敗時使用本地分類器
+    classificationResult.value = classifyExpense(aiDescription.value);
+    if (classificationResult.value) {
+      llmResult.value = {
+        type: "expense",
+        categoryId: classificationResult.value.categoryId,
+        confidence: classificationResult.value.confidence,
+        description: aiDescription.value,
+        explanation: "(本地分類) " + classificationResult.value.explanation,
+        errorMessage: error instanceof Error ? error.message : "分類失敗，請稍後再試",
+        metadata: {
+          fallbackUsed: true,
+          processingTime: 0
+        }
+      };
+      aiSelectedCategory.value = classificationResult.value.categoryId;
+    }
+  } finally {
+    isProcessing.value = false;
+    intermediateResult.value = null; // 清除中間結果
+  }
+};
+
+// 原版 LLM 分類 API（保留作為備用）
+const classifyWithLLMApi = async () => {
+  if (!aiDescription.value) return;
+  isProcessing.value = true;
+  
+  try {
+    const result = await classifyWithLLM(aiDescription.value);
+    llmResult.value = {
+      ...result,
+      metadata: result.metadata || { processingTime: 0, fallbackUsed: false }
+    };
+    
+    // 設置金額
+    const matches = aiDescription.value.match(/\d+/);
+    extractedAmount.value = matches ? parseInt(matches[0]) : 0;
+    
+    // 設置類別
+    if (!showManualCategorySelector.value || !aiSelectedCategory.value) {
+      aiSelectedCategory.value = result.categoryId;
     }
   } catch (error: unknown) {
     console.error("LLM classification failed:", error);
@@ -1182,8 +1291,8 @@ const classifyWithLLMApi = async () => {
         confidence: classificationResult.value.confidence,
         description: aiDescription.value,
         explanation: "(本地分類) " + classificationResult.value.explanation,
-        errorMessage:
-          error instanceof Error ? error.message : "分類失敗，請稍後再試",
+        errorMessage: error instanceof Error ? error.message : "分類失敗，請稍後再試",
+        metadata: { fallbackUsed: true, processingTime: 0 }
       };
       aiSelectedCategory.value = classificationResult.value.categoryId;
     }

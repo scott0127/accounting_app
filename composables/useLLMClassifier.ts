@@ -114,119 +114,240 @@ ${incomeCategories}
   }
 
   /**
-   * Enhanced LLM Classification focused on category accuracy
+   * 🚀 Enhanced LLM Classification with Streaming Support
+   * Features: Progressive loading, streaming responses, immediate feedback
    */
-  const classifyWithLLM = async (description: string): Promise<LLMClassifierResult> => {
+  const classifyWithLLM = async (
+    description: string, 
+    options?: {
+      enableStreaming?: boolean;
+      onProgress?: (stage: string, progress: number) => void;
+      onIntermediateResult?: (result: Partial<LLMClassifierResult>) => void;
+    }
+  ): Promise<LLMClassifierResult> => {
+    const { enableStreaming = false, onProgress, onIntermediateResult } = options || {};
+    
     if (!description || !description.trim()) {
       return createFallbackResult('', '未提供交易描述');
     }
     
+    // 立即提供本地預分類結果
+    const fallbackResult = createFallbackResult(description);
+    onIntermediateResult?.(fallbackResult);
+    onProgress?.('正在準備分析...', 10);
+    
     // Input preprocessing
     const preprocessedInput = preprocessInput(description);
+    onProgress?.('正在處理輸入...', 20);
     
     try {
       const prompt = buildClassificationPrompt(preprocessedInput);
-      const config = useRuntimeConfig()
+      const config = useRuntimeConfig();
+      onProgress?.('正在連接AI服務...', 30);
       
-      // Optimized API configuration for classification accuracy
+      // 優化的 API 配置，支持流式響應
       const apiConfig = {
-        model: "gpt-4-turbo-preview", 
+        model: "gpt-3.5-turbo-1106", // 使用更快的模型
         messages: [
           { 
             role: "system", 
-            content: "你是交易分類AI，專精於判斷中文交易描述的收支類型和類別歸屬。回傳精確的JSON分類結果。" 
+            content: "你是快速交易分類AI。請快速分析並以JSON格式回傳分類結果。" 
           },
           { role: "user", content: prompt }
         ],
-        temperature: 0.1, // Low temperature for consistent classification
-        max_tokens: 200,   // Reduced for focused output
-        response_format: { type: "json_object" }
+        temperature: 0.1,
+        max_tokens: 150, // 進一步減少 token 數量
+        ...(enableStreaming && { stream: true }) // 支持流式響應
       };
       
-      // Retry mechanism with exponential backoff
-      const maxRetries = 3;
-      let lastError: any = null;
+      const startTime = Date.now();
+      let result: LLMClassifierResult;
       
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          // Advanced API configuration
-          const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.public.openaiApiKey}`
-          };
-          
-          // Add optional organization header
-          if (config.public.openaiOrgId && typeof config.public.openaiOrgId === 'string') {
-            headers['OpenAI-Organization'] = config.public.openaiOrgId;
-          }
-          
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(apiConfig)
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+      if (enableStreaming) {
+        result = await handleStreamingClassification(apiConfig, preprocessedInput, onProgress, onIntermediateResult);
+      } else {
+        result = await handleStandardClassification(apiConfig, preprocessedInput, onProgress);
+      }
+      
+      // 記錄性能指標
+      const processingTime = Date.now() - startTime;
+      result.metadata = {
+        ...result.metadata,
+        processingTime,
+        fallbackUsed: false
+      };
+      
+      onProgress?.('分析完成', 100);
+      console.log(`✅ LLM Classification completed in ${processingTime}ms`);
+      
+      return result;
+      
+    } catch (error: any) {
+      console.error('❌ LLM Classification failed:', error);
+      onProgress?.('分析失敗，使用備用分類', 100);
+      
+      const errorResult = createFallbackResult(preprocessedInput, `LLM分析失敗: ${error?.message || '未知錯誤'}`);
+      errorResult.metadata = { fallbackUsed: true, processingTime: Date.now() };
+      
+      return errorResult;
+    }
+  };
+
+  /**
+   * 🌊 處理流式分類響應
+   */
+  const handleStreamingClassification = async (
+    apiConfig: any,
+    input: string,
+    onProgress?: (stage: string, progress: number) => void,
+    onIntermediateResult?: (result: Partial<LLMClassifierResult>) => void
+  ): Promise<LLMClassifierResult> => {
+    const config = useRuntimeConfig();
+    
+    onProgress?.('開始流式分析...', 40);
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.public.openaiApiKey}`,
+        'Accept': 'text/event-stream'
+      },
+      body: JSON.stringify(apiConfig)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API請求失敗: ${response.status}`);
+    }
+    
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('無法建立串流讀取器');
+    }
+    
+    const decoder = new TextDecoder();
+    let accumulatedContent = '';
+    let progress = 50;
+    
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
             
-            // Handle specific error types
-            if (response.status === 429) {
-              // Rate limit - wait before retry
-              if (attempt < maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-                continue;
+            if (data === '[DONE]') {
+              progress = 90;
+              onProgress?.('正在完成分析...', progress);
+              break;
+            }
+            
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              
+              if (content) {
+                accumulatedContent += content;
+                progress = Math.min(progress + 5, 85);
+                onProgress?.('正在接收分析結果...', progress);
+                
+                // 嘗試解析部分結果
+                const partialResult = tryParsePartialResult(accumulatedContent);
+                if (partialResult) {
+                  onIntermediateResult?.(partialResult);
+                }
               }
+            } catch (e) {
+              // 忽略解析錯誤，繼續處理
             }
-            
-            if (response.status === 401) {
-              throw new Error('API金鑰無效或已過期');
-            }
-            
-            throw new Error(`API請求失敗: ${response.status} - ${errorData.error?.message || response.statusText}`);
-          }
-          
-          const data = await response.json();
-          
-          if (!data.choices || !data.choices[0]?.message?.content) {
-            throw new Error('API回應格式異常');
-          }
-          
-          // Enhanced JSON parsing with validation
-          const result = parseAndValidateResult(data.choices[0].message.content, preprocessedInput);
-          
-          // Success - log classification result
-          console.log(`✅ Classification Success (attempt ${attempt}):`, {
-            input: preprocessedInput,
-            type: result.type,
-            category: result.categoryId,
-            confidence: result.confidence
-          });
-          
-          return result;
-          
-        } catch (error: any) {
-          lastError = error;
-          console.warn(`⚠️ Classification attempt ${attempt} failed:`, error.message);
-          
-          // If not a retryable error, break immediately
-          if (!isRetryableError(error)) {
-            break;
-          }
-          
-          // Wait before retry (exponential backoff)
-          if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 500));
           }
         }
       }
       
-      // All retries failed
-      console.error('❌ Classification failed after all attempts:', lastError);
-      return createFallbackResult(preprocessedInput, `分類失敗: ${lastError?.message || '未知錯誤'}`);
+      onProgress?.('正在驗證結果...', 95);
+      return parseAndValidateResult(accumulatedContent, input);
       
-    } catch (error: any) {
-      console.error('❌ Classification system error:', error);
-      return createFallbackResult(preprocessedInput, `系統錯誤: ${error?.message || '未知錯誤'}`);
+    } finally {
+      reader.releaseLock();
+    }
+  };
+
+  /**
+   * 📋 處理標準分類響應（優化版）
+   */
+  const handleStandardClassification = async (
+    apiConfig: any,
+    input: string,
+    onProgress?: (stage: string, progress: number) => void
+  ): Promise<LLMClassifierResult> => {
+    const config = useRuntimeConfig();
+    
+    // 使用並行請求和超時控制
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('請求超時')), 8000) // 8秒超時
+    );
+    
+    const requestPromise = fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.public.openaiApiKey}`
+      },
+      body: JSON.stringify(apiConfig)
+    });
+    
+    onProgress?.('正在等待AI響應...', 50);
+    
+    const response = await Promise.race([requestPromise, timeoutPromise]);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API請求失敗: ${response.status} - ${errorData.error?.message || response.statusText}`);
+    }
+    
+    onProgress?.('正在處理響應...', 80);
+    const data = await response.json();
+    
+    if (!data.choices || !data.choices[0]?.message?.content) {
+      throw new Error('API回應格式異常');
+    }
+    
+    return parseAndValidateResult(data.choices[0].message.content, input);
+  };
+
+  /**
+   * 🔍 嘗試解析部分結果（用於流式響應）
+   */
+  const tryParsePartialResult = (content: string): Partial<LLMClassifierResult> | null => {
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+      
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      // 只返回已確定的部分
+      const partial: Partial<LLMClassifierResult> = {};
+      
+      if (parsed.type && ['expense', 'income'].includes(parsed.type)) {
+        partial.type = parsed.type;
+      }
+      
+      if (parsed.categoryId && typeof parsed.categoryId === 'string') {
+        partial.categoryId = parsed.categoryId;
+      }
+      
+      if (typeof parsed.confidence === 'number') {
+        partial.confidence = Math.round(parsed.confidence);
+      }
+      
+      return Object.keys(partial).length > 0 ? partial : null;
+    } catch {
+      return null;
     }
   };
   
@@ -362,27 +483,95 @@ ${incomeCategories}
   };
   
   return {
+    // 🚀 主要分類方法
     classifyWithLLM,
-    buildClassificationPrompt, // Export for testing purposes
     
-    // Batch classification for multiple transactions
+    // ⚡ 快速分類（無流式響應，最快速度）
+    classifyFast: async (description: string): Promise<LLMClassifierResult> => {
+      return classifyWithLLM(description, { enableStreaming: false });
+    },
+    
+    // 🌊 流式分類（更好的用戶體驗）
+    classifyStreaming: async (
+      description: string, 
+      callbacks: {
+        onProgress: (stage: string, progress: number) => void;
+        onIntermediateResult: (result: Partial<LLMClassifierResult>) => void;
+      }
+    ): Promise<LLMClassifierResult> => {
+      return classifyWithLLM(description, {
+        enableStreaming: true,
+        onProgress: callbacks.onProgress,
+        onIntermediateResult: callbacks.onIntermediateResult
+      });
+    },
+    
+    // 🎯 智能分類（自動選擇最佳方法）
+    classifyIntelligent: async (
+      description: string,
+      options?: {
+        preferSpeed?: boolean; // 優先速度還是體驗
+        onProgress?: (stage: string, progress: number) => void;
+        onIntermediateResult?: (result: Partial<LLMClassifierResult>) => void;
+      }
+    ): Promise<LLMClassifierResult> => {
+      const { preferSpeed = false } = options || {};
+      
+      // 短描述使用快速模式，長描述使用流式模式
+      const useStreaming = !preferSpeed && description.length > 20;
+      
+      return classifyWithLLM(description, {
+        enableStreaming: useStreaming,
+        onProgress: options?.onProgress,
+        onIntermediateResult: options?.onIntermediateResult
+      });
+    },
+    
+    // Export for testing purposes
+    buildClassificationPrompt,
+    
+    // 批量分類（進階功能）
     classifyBatch: async (descriptions: string[], options?: ClassificationOptions): Promise<LLMClassifierResult[]> => {
       const results: LLMClassifierResult[] = [];
       const startTime = Date.now();
       
-      for (const desc of descriptions) {
-        const result = await classifyWithLLM(desc);
-        results.push(result);
+      // 並行處理小批量，避免 API 限制
+      const batchSize = 3;
+      for (let i = 0; i < descriptions.length; i += batchSize) {
+        const batch = descriptions.slice(i, i + batchSize);
         
-        // Add small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        const batchPromises = batch.map(desc => 
+          classifyWithLLM(desc, { enableStreaming: false })
+        );
+        
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+        
+        // 批次間延遲
+        if (i + batchSize < descriptions.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
       
       console.log(`✅ Batch classification completed: ${descriptions.length} items in ${Date.now() - startTime}ms`);
       return results;
     },
     
-    // Get classification statistics
+    // 並行分類（最快但消耗更多 API 配額）
+    classifyParallel: async (descriptions: string[], maxConcurrent = 5): Promise<LLMClassifierResult[]> => {
+      const results: LLMClassifierResult[] = [];
+      
+      for (let i = 0; i < descriptions.length; i += maxConcurrent) {
+        const batch = descriptions.slice(i, i + maxConcurrent);
+        const batchPromises = batch.map(desc => classifyWithLLM(desc));
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+      }
+      
+      return results;
+    },
+    
+    // 獲取分類統計
     getClassificationStats: () => {
       const categories = store.categories;
       return {
@@ -393,7 +582,7 @@ ${incomeCategories}
       };
     },
     
-    // Validate input before classification
+    // 驗證輸入
     validateInput: (input: string): { isValid: boolean; issues: string[] } => {
       const issues: string[] = [];
       
@@ -413,6 +602,13 @@ ${incomeCategories}
         isValid: issues.length === 0,
         issues
       };
+    },
+    
+    // 🔧 工具方法
+    utils: {
+      preprocessInput,
+      createFallbackResult,
+      tryParsePartialResult
     }
   };
 }
