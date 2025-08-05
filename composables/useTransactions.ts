@@ -1,15 +1,7 @@
 import { ref, computed } from 'vue'
 import { useTransactionStore } from '~/stores/transaction'
+import type { Transaction } from '~/types'
 import dayjs from 'dayjs'
-
-export interface Transaction {
-  id: string;
-  type: 'income' | 'expense';
-  category: string;
-  amount: number;
-  date: string;
-  description?: string;
-}
 
 export function useTransactions(currentMonth: any) {
   const store = useTransactionStore()
@@ -17,10 +9,10 @@ export function useTransactions(currentMonth: any) {
   const showEditTransactionModal = ref(false)
   const showAllTransactions = ref(false)
 
-  const newTransaction = ref<Transaction>({
+  const newTransaction = ref<Partial<Transaction>>({
     id: '',
     type: 'expense',
-    category: '',
+    category_id: '',
     amount: 0,
     date: dayjs().format('YYYY-MM-DD')
   })
@@ -29,10 +21,12 @@ export function useTransactions(currentMonth: any) {
 
   // 添加交易
   const addTransaction = (): void => {
-    const transaction = {
-      ...newTransaction.value,
-      id: Date.now().toString(),
-      amount: Number(newTransaction.value.amount)
+    const transaction: Omit<Transaction, 'id'> = {
+      amount: Number(newTransaction.value.amount || 0),
+      type: newTransaction.value.type || 'expense',
+      category_id: newTransaction.value.category_id || '',
+      date: newTransaction.value.date || dayjs().format('YYYY-MM-DD'),
+      description: newTransaction.value.description || ''
     }
     
     store.addTransaction(transaction)
@@ -45,7 +39,7 @@ export function useTransactions(currentMonth: any) {
     newTransaction.value = {
       id: '',
       type: 'expense',
-      category: '',
+      category_id: '',
       amount: 0,
       date: dayjs().format('YYYY-MM-DD'),
       description: ''

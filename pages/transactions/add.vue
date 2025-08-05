@@ -279,123 +279,307 @@
         </button>
       </div>
 
-      <!-- 分析結果 -->
-      <div v-if="aiSuggestionResult" class="space-y-6">
-        <!-- 分析摘要 -->
-        <div class="bg-white rounded-xl shadow-sm p-4">
-          <h4 class="font-medium mb-2">分析摘要</h4>
-          <p class="text-gray-700">{{ aiSuggestionResult.analysis }}</p>
+      <!-- 分析結果 - 即時顯示系統 -->
+      <div v-if="smartAnalysisResult" class="space-y-4">
+        <!-- 快速摘要 - 有數據就立即顯示 -->
+        <div 
+          v-if="smartAnalysisResult.quickSummary" 
+          class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-sm p-4 border-l-4 border-blue-400 
+                 transform transition-all duration-500 ease-out animate-slide-in-from-top"
+        >
+          <div class="flex items-center mb-2">
+            <span class="text-2xl mr-2 animate-bounce">💰</span>
+            <h4 class="font-medium text-gray-800">財務快報</h4>
+            <span 
+              v-if="!smartAnalysisResult.spendingStory" 
+              class="ml-2 text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full animate-pulse"
+            >
+              分析中...
+            </span>
+          </div>
+          <p class="text-gray-700 text-lg leading-relaxed">{{ smartAnalysisResult.quickSummary }}</p>
         </div>
 
-        <!-- 預算建議 -->
-        <div class="bg-white rounded-xl shadow-sm p-4">
-          <h4 class="font-medium mb-3">預算建議</h4>
-          <div class="space-y-3">
-            <div>
-              <div class="flex justify-between mb-1">
-                <span>必要支出</span>
-                <span class="font-medium"
-                  >{{
-                    aiSuggestionResult.monthlyBudgetSuggestion.essentials
-                  }}
-                  元</span
-                >
+        <!-- 消費故事 - 有數據就立即顯示 -->
+        <div 
+          v-if="smartAnalysisResult.spendingStory" 
+          class="bg-white rounded-xl shadow-sm p-4 border border-gray-100
+                 transform transition-all duration-700 ease-out animate-slide-in-from-left"
+        >
+          <div class="flex items-center mb-3">
+            <span class="text-2xl mr-2">🛒</span>
+            <h4 class="font-medium text-gray-800">你的消費故事</h4>
+          </div>
+          <p class="text-gray-700 mb-4 leading-relaxed">{{ smartAnalysisResult.spendingStory }}</p>
+          
+          <!-- 消費亮點回顧 -->
+          <div 
+            v-if="currentInsights.detailed?.spendingPatterns?.expensiveItems || currentInsights.detailed?.spendingPatterns?.topExpenses" 
+            class="mt-4 space-y-3"
+          >
+            <!-- 最貴商品 -->
+            <div 
+              v-if="currentInsights.detailed.spendingPatterns.expensiveItems?.mostExpensive" 
+              class="bg-gradient-to-r from-amber-50 to-orange-50 p-3 rounded-lg border-l-4 border-amber-400"
+            >
+              <div class="flex items-center mb-2">
+                <span class="text-xl mr-2">💎</span>
+                <h5 class="font-medium text-amber-800">最大手筆</h5>
               </div>
-              <div class="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  class="bg-blue-500 h-2 rounded-full"
-                  :style="{ width: '70%' }"
-                ></div>
+              <div class="text-sm">
+                <p class="text-amber-700 font-medium">
+                  {{ currentInsights.detailed.spendingPatterns.expensiveItems.mostExpensive.item }}
+                </p>
+                <p class="text-amber-600">
+                  金額：{{ currentInsights.detailed.spendingPatterns.expensiveItems.mostExpensive.amount.toLocaleString() }} 元
+                </p>
+                <p class="text-amber-600 text-xs mt-1">
+                  {{ currentInsights.detailed.spendingPatterns.expensiveItems.mostExpensive.reason }}
+                </p>
               </div>
             </div>
-            <div>
-              <div class="flex justify-between mb-1">
-                <span>娛樂支出</span>
-                <span class="font-medium"
-                  >{{
-                    aiSuggestionResult.monthlyBudgetSuggestion.entertainment
-                  }}
-                  元</span
+            
+            <!-- 消費亮點 -->
+            <div 
+              v-if="currentInsights.detailed.spendingPatterns.topExpenses && currentInsights.detailed.spendingPatterns.topExpenses.length > 0" 
+              class="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-400"
+            >
+              <div class="flex items-center mb-2">
+                <span class="text-xl mr-2">🏆</span>
+                <h5 class="font-medium text-blue-800">消費亮點</h5>
+              </div>
+              <div class="space-y-2">
+                <div 
+                  v-for="expense in currentInsights.detailed.spendingPatterns.topExpenses!.slice(0, 2)" 
+                  :key="expense.description"
+                  class="text-sm"
                 >
-              </div>
-              <div class="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  class="bg-green-500 h-2 rounded-full"
-                  :style="{ width: '20%' }"
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div class="flex justify-between mb-1">
-                <span>儲蓄</span>
-                <span class="font-medium"
-                  >{{
-                    aiSuggestionResult.monthlyBudgetSuggestion.savings
-                  }}
-                  元</span
-                >
-              </div>
-              <div class="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  class="bg-yellow-500 h-2 rounded-full"
-                  :style="{ width: '10%' }"
-                ></div>
+                  <p class="text-blue-700 font-medium">{{ expense.description }}</p>
+                  <div class="flex justify-between text-blue-600 text-xs">
+                    <span>{{ expense.amount.toLocaleString() }} 元 · {{ expense.category }}</span>
+                    <span>{{ expense.date }}</span>
+                  </div>
+                  <p class="text-blue-600 text-xs mt-1">{{ expense.insight }}</p>
+                </div>
               </div>
             </div>
           </div>
-          <p class="mt-3 text-sm text-gray-600">
-            {{ aiSuggestionResult.monthlyBudgetSuggestion.explanation }}
-          </p>
+          
+          <!-- 進度指示器 -->
+          <div v-if="analysisProgress.isLoading" class="mb-4">
+            <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
+              <span class="animate-pulse">{{ analysisProgress.message }}</span>
+              <span class="font-mono text-blue-600">{{ analysisProgress.percentage }}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div 
+                class="bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 h-2 rounded-full 
+                       transition-all duration-1000 ease-out bg-[length:200%_100%] animate-gradient-x"
+                :style="{ width: `${analysisProgress.percentage}%` }"
+              ></div>
+            </div>
+          </div>
         </div>
 
-        <!-- 個人化建議 -->
-        <div class="bg-white rounded-xl shadow-sm p-4">
-          <h4 class="font-medium mb-3">個人化建議</h4>
-          <ul class="space-y-2">
-            <li
-              v-for="(suggestion, index) in aiSuggestionResult.suggestions"
-              :key="index"
-              class="flex items-start"
-            >
-              <span class="text-blue-500 mr-2">•</span>
-              <span>{{ suggestion }}</span>
-            </li>
-          </ul>
-        </div>
-
-        <!-- 節省潛力 -->
-        <div
-          v-if="aiSuggestionResult.savingsPotential > 0"
-          class="bg-white rounded-xl shadow-sm p-4"
+        <!-- 個人化小貼士 - 有數據就立即顯示 -->
+        <div 
+          v-if="smartAnalysisResult.personalizedTips && smartAnalysisResult.personalizedTips.length > 0" 
+          class="bg-white rounded-xl shadow-sm p-4 border border-gray-100
+                 transform transition-all duration-700 ease-out animate-slide-in-from-right"
         >
-          <h4 class="font-medium mb-2">節省潛力</h4>
-          <p>
-            根據分析，您每月可以節省約
-            <span class="font-medium text-green-600"
-              >{{ aiSuggestionResult.savingsPotential }} 元</span
-            >。
-          </p>
+          <div class="flex items-center mb-3">
+            <span class="text-2xl mr-2">🎯</span>
+            <h4 class="font-medium text-gray-800">專屬理財小貼士</h4>
+          </div>
+          <div class="space-y-3">
+            <div
+              v-for="(tip, index) in smartAnalysisResult.personalizedTips"
+              :key="index"
+              class="flex items-start p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-400
+                     transform transition-all duration-500 ease-out hover:scale-[1.02] hover:shadow-md
+                     animate-fade-in"
+              :style="{ animationDelay: `${index * 100}ms` }"
+            >
+              <span class="text-yellow-600 mr-2 text-lg">{{ tip.split(' ')[0] }}</span>
+              <span class="text-gray-700 leading-relaxed">{{ tip.split(' ').slice(1).join(' ') }}</span>
+            </div>
+          </div>
+        </div>
 
-          <div
-            v-if="
-              aiSuggestionResult.riskAreas &&
-              aiSuggestionResult.riskAreas.length > 0
-            "
-            class="mt-3"
-          >
-            <h5 class="text-sm font-medium text-gray-700 mb-1">
-              需要注意的風險領域：
-            </h5>
-            <ul class="space-y-1">
-              <li
-                v-for="(risk, index) in aiSuggestionResult.riskAreas"
-                :key="index"
-                class="flex items-start"
+        <!-- 預算建議 - 有數據就立即顯示 -->
+        <div 
+          v-if="smartAnalysisResult.budgetAdvice && smartAnalysisResult.budgetAdvice.explanation" 
+          class="bg-white rounded-xl shadow-sm p-4 border border-gray-100
+                 transform transition-all duration-700 ease-out animate-slide-in-from-bottom"
+        >
+          <div class="flex items-center mb-3">
+            <span class="text-2xl mr-2">📊</span>
+            <h4 class="font-medium text-gray-800">理想預算分配</h4>
+          </div>
+          <div class="space-y-4">
+            <!-- 生活必需品 -->
+            <div class="bg-green-50 p-4 rounded-lg transform transition-all duration-500 hover:scale-[1.01]">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-green-700 font-medium flex items-center">
+                  <span class="mr-2">🏠</span>生活必需品
+                </span>
+                <span class="text-green-700 font-bold text-lg">
+                  {{ smartAnalysisResult.budgetAdvice.essentials.toLocaleString() }} 元
+                </span>
+              </div>
+              <div class="w-full bg-green-200 rounded-full h-3 mb-2 overflow-hidden">
+                <div class="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full 
+                           transition-all duration-2000 ease-out animate-width-60"></div>
+              </div>
+              <p class="text-sm text-green-600">房租、水電、交通等基本開銷</p>
+            </div>
+            
+            <!-- 娛樂享受 -->
+            <div class="bg-blue-50 p-4 rounded-lg transform transition-all duration-500 hover:scale-[1.01]">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-blue-700 font-medium flex items-center">
+                  <span class="mr-2">🎮</span>娛樂享受
+                </span>
+                <span class="text-blue-700 font-bold text-lg">
+                  {{ smartAnalysisResult.budgetAdvice.fun.toLocaleString() }} 元
+                </span>
+              </div>
+              <div class="w-full bg-blue-200 rounded-full h-3 mb-2 overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-400 to-blue-600 h-3 rounded-full 
+                           transition-all duration-2000 ease-out animate-width-25"
+                     style="animation-delay: 300ms"></div>
+              </div>
+              <p class="text-sm text-blue-600">吃喝玩樂、購物、聚餐</p>
+            </div>
+            
+            <!-- 儲蓄投資 -->
+            <div class="bg-purple-50 p-4 rounded-lg transform transition-all duration-500 hover:scale-[1.01]">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-purple-700 font-medium flex items-center">
+                  <span class="mr-2">💎</span>儲蓄投資
+                </span>
+                <span class="text-purple-700 font-bold text-lg">
+                  {{ smartAnalysisResult.budgetAdvice.savings.toLocaleString() }} 元
+                </span>
+              </div>
+              <div class="w-full bg-purple-200 rounded-full h-3 mb-2 overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-400 to-purple-600 h-3 rounded-full 
+                           transition-all duration-2000 ease-out animate-width-15"
+                     style="animation-delay: 600ms"></div>
+              </div>
+              <p class="text-sm text-purple-600">為未來的自己存錢</p>
+            </div>
+          </div>
+          <div class="mt-4 p-3 bg-gray-50 rounded-lg border-l-4 border-gray-300">
+            <p class="text-sm text-gray-600 leading-relaxed">
+              <span class="text-lg mr-1">💡</span>{{ smartAnalysisResult.budgetAdvice.explanation }}
+            </p>
+          </div>
+        </div>
+
+        <!-- AI 貼心話 - 有數據就立即顯示 -->
+        <div 
+          v-if="smartAnalysisResult.conversationalAdvice" 
+          class="bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 rounded-xl shadow-sm p-4 border-l-4 border-pink-400
+                 transform transition-all duration-700 ease-out animate-slide-in-from-top
+                 hover:shadow-lg hover:-translate-y-1"
+        >
+          <div class="flex items-center mb-2">
+            <span class="text-2xl mr-2 animate-pulse">🤖</span>
+            <h4 class="font-medium text-pink-800">AI 財務顧問的話</h4>
+          </div>
+          <p class="text-pink-700 text-lg leading-relaxed">{{ smartAnalysisResult.conversationalAdvice }}</p>
+        </div>
+
+        <!-- 主動建議 -->
+        <div v-if="proactiveAdvice && proactiveAdvice.length > 0" class="bg-white rounded-xl shadow-sm p-4">
+          <div class="flex items-center mb-3">
+            <span class="text-2xl mr-2">⚡</span>
+            <h4 class="font-medium">即時提醒</h4>
+          </div>
+          <div class="space-y-3">
+            <div
+              v-for="advice in proactiveAdvice"
+              :key="advice.title"
+              class="p-3 rounded-lg border-l-3"
+              :class="{
+                'bg-red-50 border-red-400': advice.type === 'urgent',
+                'bg-yellow-50 border-yellow-400': advice.type === 'warning',
+                'bg-blue-50 border-blue-400': advice.type === 'suggestion'
+              }"
+            >
+              <div class="flex items-center justify-between">
+                <h5 class="font-medium" :class="{
+                  'text-red-700': advice.type === 'urgent',
+                  'text-yellow-700': advice.type === 'warning',
+                  'text-blue-700': advice.type === 'suggestion'
+                }">
+                  {{ advice.type === 'urgent' ? '🚨' : advice.type === 'warning' ? '⚠️' : '💡' }}
+                  {{ advice.title }}
+                </h5>
+                <button 
+                  @click="handleAdviceAction(advice)"
+                  class="text-xs px-2 py-1 rounded-full"
+                  :class="{
+                    'bg-red-100 text-red-600 hover:bg-red-200': advice.type === 'urgent',
+                    'bg-yellow-100 text-yellow-600 hover:bg-yellow-200': advice.type === 'warning',
+                    'bg-blue-100 text-blue-600 hover:bg-blue-200': advice.type === 'suggestion'
+                  }"
+                >
+                  {{ advice.action }}
+                </button>
+              </div>
+              <p class="text-sm mt-1" :class="{
+                'text-red-600': advice.type === 'urgent',
+                'text-yellow-600': advice.type === 'warning',
+                'text-blue-600': advice.type === 'suggestion'
+              }">{{ advice.message }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 智能問答 -->
+        <div class="bg-white rounded-xl shadow-sm p-4">
+          <div class="flex items-center mb-3">
+            <span class="text-2xl mr-2">💬</span>
+            <h4 class="font-medium">問我任何問題</h4>
+          </div>
+          
+          <!-- 建議問題 -->
+          <div v-if="suggestedQuestions && suggestedQuestions.length > 0" class="mb-4">
+            <p class="text-sm text-gray-600 mb-2">試試這些問題：</p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="question in suggestedQuestions.slice(0, 3)"
+                :key="question"
+                @click="askQuickQuestion(question)"
+                class="text-xs px-3 py-2 bg-gray-100 hover:bg-blue-100 hover:text-blue-700 rounded-full transition-colors"
               >
-                <span class="text-red-500 mr-2">•</span>
-                <span class="text-sm">{{ risk }}</span>
-              </li>
-            </ul>
+                {{ question }}
+              </button>
+            </div>
+          </div>
+          
+          <!-- 自由提問 -->
+          <div class="flex gap-2">
+            <input
+              v-model="customQuestion"
+              @keyup.enter="askQuickQuestion(customQuestion)"
+              placeholder="例如：我下個月應該怎麼控制支出？"
+              class="flex-1 p-2 border rounded-lg text-sm"
+            />
+            <button
+              @click="askQuickQuestion(customQuestion)"
+              :disabled="!customQuestion.trim()"
+              class="px-4 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-50 text-sm"
+            >
+              問問看
+            </button>
+          </div>
+          
+          <!-- 問答結果 -->
+          <div v-if="quickAnswerResult" class="mt-3 p-3 bg-blue-50 rounded-lg border-l-3 border-blue-400">
+            <p class="text-blue-800">{{ quickAnswerResult }}</p>
           </div>
         </div>
       </div>
@@ -515,15 +699,71 @@
   </div>
 </template>
 
+<style scoped>
+/* 移除 number input 的箭頭 */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* 自定義日期選擇器樣式 */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* 自定義動畫（純 Tailwind 無法實現的） */
+@keyframes gradient-x {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes width-60 {
+  from { width: 0%; }
+  to { width: 60%; }
+}
+
+@keyframes width-25 {
+  from { width: 0%; }
+  to { width: 25%; }
+}
+
+@keyframes width-15 {
+  from { width: 0%; }
+  to { width: 15%; }
+}
+
+.animate-gradient-x {
+  animation: gradient-x 2s ease infinite;
+}
+
+.animate-width-60 {
+  animation: width-60 2s ease-out forwards;
+}
+
+.animate-width-25 {
+  animation: width-25 2s ease-out forwards;
+}
+
+.animate-width-15 {
+  animation: width-15 2s ease-out forwards;
+}
+</style>
+
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
-import { useRouter } from "vue-router"; // Added for router.back()
+import { useRouter } from "vue-router";
 import { useTransactionStore } from "~/stores/transaction";
-import {
-  analyzeTransactions,
-  type LLMSummaryResult,
-  type TransactionWithCategory,
-} from "~/composables/useLLMSummary"; // Consolidated and added LLMSummaryResult
+import { useSmartFinancialAssistant } from "~/composables/useSmartFinancialAssistant";
 import { useExpenseClassifier } from "~/composables/useExpenseClassifier";
 import { useLLMClassifier } from "~/composables/useLLMClassifier";
 import { useSupabaseTransactions } from "~/composables/useSupabaseTransactions";
@@ -535,11 +775,22 @@ const {
   loading: transactionLoading,
   initialize,
 } = useSupabaseTransactions();
+
+// 使用新的智能財務助理
+const {
+  currentInsights,
+  analysisProgress,
+  proactiveAdvice,
+  suggestedQuestions,
+  startAnalysis,
+  quickAsk,
+  generateConversationalResponse
+} = useSmartFinancialAssistant();
+
 const router = useRouter();
 const store = useTransactionStore();
 const { classifyExpense, rememberCorrection } = useExpenseClassifier();
 const { classifyWithLLM } = useLLMClassifier();
-// analyzeTransactions 已經直接導入使用
 
 // 記帳模式
 const mode = ref<"ai" | "ai-suggestion" | "expense" | "income">("ai");
@@ -559,15 +810,32 @@ const aiSelectedCategory = ref("");
 let extractedAmount = ref(0);
 let debounceTimeout: any = null;
 
-// AI Suggestion state
+// AI Suggestion state - 使用新的智能分析系統
 const startDate = ref(dayjs().subtract(1, "month").format("YYYY-MM-DD"));
 const endDate = ref(dayjs().format("YYYY-MM-DD"));
 const aiSuggestionQuestion = ref("請分析我的消費習慣並提供建議");
-const aiSuggestionResult = ref<LLMSummaryResult | null>(null);
 const isGeneratingSuggestion = ref(false);
 const manualCategoryType = ref<"income" | "expense">("expense");
 
-// Generate AI Suggestion
+// 智能分析結果（口語化）
+const smartAnalysisResult = ref<{
+  quickSummary: string;
+  spendingStory: string;
+  personalizedTips: string[];
+  budgetAdvice: {
+    essentials: number;
+    fun: number;
+    savings: number;
+    explanation: string;
+  };
+  conversationalAdvice: string;
+} | null>(null);
+
+// 智能問答相關
+const customQuestion = ref('');
+const quickAnswerResult = ref('');
+
+// Generate AI Suggestion - 真正的即時顯示系統
 const generateAISuggestion = async () => {
   if (!startDate.value || !endDate.value) {
     alert("請選擇日期範圍");
@@ -576,23 +844,208 @@ const generateAISuggestion = async () => {
 
   try {
     isGeneratingSuggestion.value = true;
+    console.log('開始生成 AI 建議...')
+    
+    // 初始化空的結果結構，準備逐步填充
+    smartAnalysisResult.value = {
+      quickSummary: '',
+      spendingStory: '',
+      personalizedTips: [],
+      budgetAdvice: {
+        essentials: 0,
+        fun: 0,
+        savings: 0,
+        explanation: ''
+      },
+      conversationalAdvice: ''
+    };
 
-    // 使用 analyzeTransactions 自動獲取交易並生成分析
-    const result = await analyzeTransactions(
-      startDate.value,
-      endDate.value,
+    // 啟動分析，不等待完成
+    const analysisPromise = startAnalysis(
+      { start: startDate.value, end: endDate.value },
       aiSuggestionQuestion.value
     );
 
-    aiSuggestionResult.value = result;
+    // 即時監聽並更新 UI（不使用 setTimeout）
+    const quickUnwatch = watch(currentInsights, (insights) => {
+      if (insights.quick && smartAnalysisResult.value) {
+        console.log('🚀 即時顯示快速摘要')
+        smartAnalysisResult.value.quickSummary = generateQuickSummary(insights.quick);
+      }
+    }, { immediate: true });
+
+    const detailedUnwatch = watch(currentInsights, (insights) => {
+      if (insights.detailed && smartAnalysisResult.value) {
+        console.log('🚀 即時顯示詳細分析')
+        
+        // 立即更新所有可用數據
+        smartAnalysisResult.value.spendingStory = generateSpendingStory(insights.detailed);
+        smartAnalysisResult.value.personalizedTips = generatePersonalizedTips(insights.detailed);
+        smartAnalysisResult.value.budgetAdvice = {
+          essentials: insights.detailed.budgetOptimization.essentials,
+          fun: insights.detailed.budgetOptimization.discretionary, // 修復：使用 discretionary 字段
+          savings: insights.detailed.budgetOptimization.savings,
+          explanation: insights.detailed.budgetOptimization.explanation
+        };
+        smartAnalysisResult.value.conversationalAdvice = generateConversationalAdvice(insights.quick, insights.detailed);
+        
+        // 清理監聽器
+        detailedUnwatch();
+      }
+    }, { immediate: true });
+
+    // 等待分析完成並清理
+    await analysisPromise;
+    quickUnwatch();
+    
+    console.log('✅ 分析完成，最終結果:', smartAnalysisResult.value)
+
   } catch (error) {
     console.error("生成建議時出錯:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "發生未知錯誤";
+    const errorMessage = error instanceof Error ? error.message : "發生未知錯誤";
     alert(`生成建議時出錯: ${errorMessage}`);
   } finally {
+    console.log('🏁 設置 isGeneratingSuggestion 為 false')
     isGeneratingSuggestion.value = false;
   }
+};
+
+// 口語化函數
+const generateQuickSummary = (quick: any) => {
+  const balance = quick.monthlyBalance;
+  const category = quick.topSpendingCategory;
+  const rate = quick.savingsRate;
+  
+  // 處理沒有資料的情況
+  if (category === '暫無資料' || balance === 0) {
+    return '還沒有交易記錄喔！開始記帳來獲得個人化的理財建議吧 📊'
+  }
+  
+  if (balance > 0) {
+    return `這個月你還剩 ${balance.toLocaleString()} 元！主要都花在${category}上，儲蓄率有 ${rate.toFixed(1)}%。`
+  } else {
+    return `這個月超支了 ${Math.abs(balance).toLocaleString()} 元，主要花在${category}上，需要注意一下支出喔！`
+  }
+};
+
+const generateSpendingStory = (detailed: any) => {
+  const categories = detailed.spendingPatterns.categories.slice(0, 3);
+  const topExpenses = detailed.spendingPatterns.topExpenses;
+  const expensiveItems = detailed.spendingPatterns.expensiveItems;
+  
+  // 處理沒有資料的情況
+  if (!categories || categories.length === 0) {
+    return '還沒有消費記錄，開始記帳後我就能告訴你有趣的消費故事囉！記錄每一筆花費，發現自己的消費模式吧 🕵️‍♀️'
+  }
+  
+  let story = "讓我看看你都買了什麼... ";
+  
+  // 基本分類消費
+  categories.forEach((cat: any, index: number) => {
+    if (index === 0) {
+      story += `最愛花錢在${cat.name}，總共花了 ${cat.amount.toLocaleString()} 元`;
+    } else if (index === 1) {
+      story += `，其次是${cat.name} ${cat.amount.toLocaleString()} 元`;
+    } else {
+      story += `，還有${cat.name} ${cat.amount.toLocaleString()} 元`;
+    }
+  });
+  
+  // 添加最貴商品信息
+  if (expensiveItems?.mostExpensive?.item) {
+    story += `。 最大手筆是買了「${expensiveItems.mostExpensive.item}」花了 ${expensiveItems.mostExpensive.amount.toLocaleString()} 元`;
+    if (expensiveItems.mostExpensive.reason) {
+      story += `，${expensiveItems.mostExpensive.reason}`;
+    }
+  }
+  
+  // 添加具體商品回顧
+  if (topExpenses && topExpenses.length > 0) {
+    const topItem = topExpenses[0];
+    story += `。值得注意的是「${topItem.description}」消費了 ${topItem.amount.toLocaleString()} 元`;
+    if (topItem.insight) {
+      story += `，${topItem.insight}`;
+    }
+  }
+  
+  return story + "。看起來你挺會享受生活的嘛！";
+};
+
+const generatePersonalizedTips = (detailed: any) => {
+  const tips = [];
+  
+  // 處理沒有資料的情況
+  if (!detailed.personalizedAdvice.immediate || detailed.personalizedAdvice.immediate.length === 0) {
+    return [
+      '📝 開始記錄每一筆消費，不管多小都要記',
+      '🎯 設定每月預算目標，讓錢花得更有意義',
+      '💡 選個順手的記帳工具，養成每日記帳的好習慣'
+    ]
+  }
+  
+  // 基於immediate建議轉換為口語化
+  detailed.personalizedAdvice.immediate.forEach((advice: string) => {
+    tips.push(`💡 ${advice.replace(/建議/, '').replace(/應該/, '可以')}`);
+  });
+  
+  // 加入一些根據支出模式的具體建議
+  const topCategory = detailed.spendingPatterns.categories[0];
+  if (topCategory?.name.includes('餐飲') || topCategory?.name.includes('飲食')) {
+    tips.push('🍕 外食族！試試一週自己下廚 2-3 次，荷包會感謝你的');
+  }
+  
+  if (topCategory?.name.includes('購物') || topCategory?.name.includes('服飾')) {
+    tips.push('🛍️ 購物前先想想：我真的需要嗎？還是只是想要？');
+  }
+  
+  return tips;
+};
+
+const generateConversationalAdvice = (quick: any, detailed: any) => {
+  const healthScore = detailed.financialHealthScore;
+  
+  // 處理新手用戶
+  if (quick.topSpendingCategory === '暫無資料' || healthScore <= 50) {
+    return "歡迎加入理財的行列！雖然現在還沒有記錄，但每個理財高手都是從第一筆記錄開始的。加油，你已經踏出重要的第一步了！ 🌟";
+  }
+  
+  if (healthScore >= 80) {
+    return "你的理財功力不錯耶！繼續保持這個節奏，未來的你會很感謝現在的自己。";
+  } else if (healthScore >= 60) {
+    return "財務狀況還算穩定，不過還有進步空間。調整一下消費習慣，你可以做得更好！";
+  } else {
+    return "嗯...看起來需要好好整理一下財務了。別擔心，從小改變開始，一步一步來就對了！";
+  }
+};
+
+// 智能問答函數
+const askQuickQuestion = async (question: string) => {
+  if (!question.trim()) return;
+  
+  try {
+    quickAnswerResult.value = '思考中...';
+    
+    const result = await quickAsk(question, {
+      start: startDate.value,
+      end: endDate.value
+    });
+    
+    quickAnswerResult.value = result.answer;
+    
+    // 清空問題輸入
+    if (question === customQuestion.value) {
+      customQuestion.value = '';
+    }
+  } catch (error) {
+    quickAnswerResult.value = '抱歉，目前無法回答這個問題，請稍後再試。';
+  }
+};
+
+// 處理建議操作
+const handleAdviceAction = (advice: any) => {
+  // 可以根據不同的建議類型執行不同操作
+  console.log('Handling advice:', advice);
+  // 例如：跳轉到相關頁面、顯示詳細資訊等
 };
 
 // 計算屬性
