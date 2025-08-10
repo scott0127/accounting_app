@@ -5,38 +5,8 @@
 import { computed } from 'vue'
 import dayjs from 'dayjs'
 
-// 核心功能
-export { useErrorHandler, globalErrorHandler } from './useErrorHandler'
-export { useApi, defaultApi } from './useApi'
-export { useForm, validationRules } from './useForm'
-
-// 數據管理
-export { useSupabase } from './useSupabase'
-export { useSupabaseAuth } from './useSupabaseAuth'
-export { useSupabaseTransactions } from './useSupabaseTransactions'
-export { useSupabaseTransactionsV2 } from './useSupabaseTransactionsV2'
-export { useAuthenticatedTransactions } from './useAuthenticatedTransactions'
-
-// 業務邏輯
-export { useTransactions } from './useTransactions'
-export { useBudget } from './useBudget'
-export { useCharts } from './useCharts'
-export { useFinancialGoals } from './useFinancialGoals'
-export { useHealthStatus } from './useHealthStatus'
-
-// 主題與 UI
-export { useTheme } from './useTheme'
-export { useUI } from './useUI'
-
-// AI 功能
-export { useExpenseClassifier } from './useExpenseClassifier'
-export { useLLMClassifier } from './useLLMClassifier'
-export { useLLMSummary } from './useLLMSummary'
-
-// 重新導出所有類型
-export type { ErrorState, UseErrorHandlerOptions } from './useErrorHandler'
-export type { ApiState, ApiOptions, PaginationOptions } from './useApi'
-export type { ValidationRule, FieldConfig, FormConfig, ValidationError } from './useForm'
+// 注意：避免在此檔案 re-export composables 與型別
+// 讓 Nuxt 的 auto-import 只維持單一來源（各自的檔案），否則會出現 duplicated imports 警告。
 
 /**
  * 常用 composable 組合 (示例，使用時需要根據實際情況調整)

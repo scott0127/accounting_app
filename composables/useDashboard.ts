@@ -1,5 +1,5 @@
 // composables/useDashboard.ts
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useSupabaseTransactions } from './useSupabaseTransactions'
 import { useBudget } from './useBudget'
 import { useHealthStatus } from './useHealthStatus'
@@ -16,7 +16,8 @@ export const useDashboard = () => {
   const { 
     transactions, 
     loading: transactionsLoading,
-    getMonthlyStats 
+    getMonthlyStats,
+    initialize
   } = useSupabaseTransactions()
   const { monthlyBudget } = useBudget()
 
@@ -97,6 +98,12 @@ export const useDashboard = () => {
     const usagePercentage = monthlyBudget.value ? 
       Math.round((displayStats.value.expense / monthlyBudget.value) * 100) : 0
     return `${usagePercentage}% 已使用`
+  })
+
+  // 初始化：並行拉起資料，避免初次進入白屏/慢一拍
+  onMounted(() => {
+    // 不 await，讓 UI 先 render，資料到時再補齊
+    initialize?.()
   })
 
   // Methods

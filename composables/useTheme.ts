@@ -21,7 +21,7 @@ export interface Theme {
 const themes: Theme[] = [
   {
     id: "default",
-    name: "湛藍天空",
+  name: "藍",
     colors: {
       primary: "#2563EB", // 更深的藍，現代感更強
       secondary: "#60A5FA",
@@ -37,30 +37,30 @@ const themes: Theme[] = [
   },
   {
     id: "dark",
-    name: "深夜星空",
+    name: "夜",
     colors: {
-      primary: "#60A5FA", // 藍色主色（星空藍）
-      secondary: "#818CF8", // 藍紫色（星雲紫）
-      accent: "#FACC15", // 金黃色（星光點綴）
-      background: "#181A20", // 深夜黑（主背景）
-      surface: "#232634", // 深灰藍（卡片/區塊背景）
-      text: "#F1F5F9", // 主要文字（高對比白）
-      textLight: "#94A3B8", // 次要文字（淺灰藍）
-      success: "#22C55E", // 綠色（收入/正向）
-      error: "#EF4444", // 紅色（支出/錯誤）
+      primary: "#3B82F6", // 冷靜藍（重點）
+      secondary: "#64748B", // 石板灰藍（輔助）
+      accent: "#94A3B8", // 淺灰藍（微點綴）
+      background: "#0F172A", // slate-900（背景）
+      surface: "#111827", // slate-800（卡片）
+      text: "#E5E7EB", // 高對比淺灰
+      textLight: "#9CA3AF", // 次要文字
+      success: "#10B981",
+      error: "#EF4444",
       chart: [
-        "#3B82F6", // 藍
-        "#60A5FA", // 淺藍
-        "#818CF8", // 藍紫
-        "#22C55E", // 綠
-        "#FACC15", // 黃
-        "#EF4444", // 紅
+        "#3B82F6",
+        "#10B981",
+        "#F59E0B",
+        "#EF4444",
+        "#8B5CF6",
+        "#14B8A6",
       ],
     },
   },
   {
     id: "coffee-dark",
-    name: "咖啡黑暗",
+    name: "咖",
     colors: {
       primary: "#8D6748", // 咖啡棕（主色，按鈕/重點）
       secondary: "#BCA18A", // 淺咖啡（輔助/標籤）
@@ -83,96 +83,96 @@ const themes: Theme[] = [
   },
   {
     id: "minimal-dark",
-    name: "極簡暗黑",
+    name: "素",
     colors: {
-      primary: "#E0E0E0", // 主色（亮灰，按鈕/重點/主文字）
-      secondary: "#B0B0B0", // 次要色（中灰，輔助/次要文字）
-      accent: "#888888", // 點綴（軟灰，icon/hover/小按鈕）
-      background: "#121212", // 主背景（深黑）
-      surface: "#1A1A1A", // 卡片/區塊（比背景稍亮一點的黑）
-      text: "#E0E0E0", // 主文字（亮灰）
-      textLight: "#B0B0B0", // 次要文字（中灰）
-      success: "#888888", // 成功（用軟灰，不強調）
-      error: "#444444", // 錯誤（深灰，不強調）
+      primary: "#E5E7EB", // 亮灰作為主色
+      secondary: "#9CA3AF", // 中灰
+      accent: "#6B7280", // 深灰點綴
+      background: "#121212", // 純淨深黑
+      surface: "#1A1A1A", // 稍亮的黑
+      text: "#E5E7EB",
+      textLight: "#9CA3AF",
+      success: "#22C55E",
+      error: "#EF4444",
       chart: [
-        "#E0E0E0", // 亮灰
-        "#B0B0B0", // 中灰
-        "#888888", // 軟灰
-        "#444444", // 深灰
-        "#1A1A1A", // 更深灰
-        "#E0E0E0", // 亮灰
+        "#E5E7EB",
+        "#9CA3AF",
+        "#6B7280",
+        "#374151",
+        "#111827",
+        "#D1D5DB",
       ],
     },
   },
   {
     id: "warm-dark",
-    name: "溫暖暗色",
+    name: "暖",
     colors: {
-      primary: "#F5E8D8", // 主文字（暖米色）
-      secondary: "#DAA520", // 次要色（金黃）
-      accent: "#FF6F61", // 主要點綴（珊瑚橘）
-      background: "#1C1C1C", // 主背景（柔黑）
-      surface: "#23201D", // 卡片/區塊（深咖啡灰，與背景有層次）
-      text: "#F5E8D8", // 主文字（暖米色）
-      textLight: "#DAA520", // 次要文字（金黃）
-      success: "#DAA520", // 成功（用金黃）
-      error: "#FF4500", // 錯誤（用珊瑚橘）
+      primary: "#F59E0B", // 琥珀重點
+      secondary: "#FDE68A", // 淡金黃
+      accent: "#FB923C", // 柔和橘
+      background: "#171717", // 柔黑
+      surface: "#23201D", // 深咖啡灰
+      text: "#F5F5F4", // 暖白
+      textLight: "#FCD34D", // 金黃文字
+      success: "#22C55E",
+      error: "#EF4444",
       chart: [
-        "#FF6F61", // 珊瑚橘
-        "#DAA520", // 金黃
-        "#F5E8D8", // 米色
-        "#FF4500", // 焦橘
-        "#23201D", // 深咖啡
-        "#1C1C1C", // 柔黑
+        "#F59E0B",
+        "#FB923C",
+        "#FDE68A",
+        "#22C55E",
+        "#EF4444",
+        "#A16207",
       ],
     },
   },
   {
     id: "warm",
-    name: "暖陽時光",
+    name: "陽",
     colors: {
-      primary: "#F59E42", // 橘黃
-      secondary: "#B45309", // 深琥珀（對比）
-      accent: "#FFF7ED", // 柔和米白
+      primary: "#F59E0B", // 琥珀
+      secondary: "#FDE68A", // 淡金
+      accent: "#FDBA74", // 柔橘
       background: "#FFF7ED", // 米白
       surface: "#FFFFFF", // 白
-      text: "#7C2D12", // 深棕（高對比）
-      textLight: "#F59E42", // 橘黃
-      success: "#22C55E", // 綠
-      error: "#EF4444", // 紅
-      chart: ["#F59E42", "#FBBF24", "#B45309", "#FDE68A", "#EAB308", "#EF4444"],
+      text: "#7C2D12", // 深棕
+      textLight: "#F59E0B",
+      success: "#22C55E",
+      error: "#EF4444",
+      chart: ["#F59E0B", "#FDBA74", "#FDE68A", "#B45309", "#EAB308", "#EF4444"],
     },
   },
   {
     id: "berry",
-    name: "莓果甜心",
+    name: "莓",
     colors: {
-      primary: "#E11D48", // 莓紅
-      secondary: "#7C3AED", // 紫莓（對比）
-      accent: "#B70620", // 淡粉
-      background: "#FDF2F8", // 淡粉
-      surface: "#FFFFFF", // 白
-      text: "#831843", // 深莓紅（高對比）
-      textLight: "#FE2A74", // 粉紅
-      success: "#22C55E", // 綠
-      error: "#EF4444", // 紅
-      chart: ["#E11D48", "#F472B6", "#7C3AED", "#A21CAF", "#C026D3", "#EF4444"],
+      primary: "#DB2777", // 玫紅（收斂）
+      secondary: "#A78BFA", // 柔紫
+      accent: "#FB7185", // 淡玫紅
+      background: "#FDF2F8", // 粉白
+      surface: "#FFFFFF",
+      text: "#831843", // 深莓
+      textLight: "#F472B6",
+      success: "#22C55E",
+      error: "#EF4444",
+      chart: ["#DB2777", "#A78BFA", "#F472B6", "#C026D3", "#7C3AED", "#EF4444"],
     },
   },
   {
     id: "ocean",
-    name: "海洋之心",
+    name: "海",
     colors: {
-      primary: "#0EA5E9", // 藍
-      secondary: "#155E75", // 深藍（對比）
-      accent: "#000000", // 淺藍
-      background: "#ECFEFF", // 極淺藍
-      surface: "#FFFFFF", // 白
-      text: "#155E75", // 深藍（高對比）
-      textLight: "#38BDF8", // 淺藍
-      success: "#22C55E", // 綠
-      error: "#EF4444", // 紅
-      chart: ["#0EA5E9", "#155E75", "#38BDF8", "#A5F3FC", "#0284C7", "#EF4444"],
+      primary: "#06B6D4", // 青藍
+      secondary: "#0E7490", // 深青
+      accent: "#22D3EE", // 淺青
+      background: "#ECFEFF", // 淺藍白
+      surface: "#FFFFFF",
+      text: "#0E7490", // 深青
+      textLight: "#67E8F9",
+      success: "#22C55E",
+      error: "#EF4444",
+      chart: ["#06B6D4", "#22D3EE", "#67E8F9", "#0E7490", "#0891B2", "#EF4444"],
     },
   },
 ];

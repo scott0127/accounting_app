@@ -169,7 +169,7 @@
                   <div class="w-8 h-8 rounded-full flex items-center justify-center"
                        :style="`background: linear-gradient(135deg, ${currentTheme.colors.primary}30, ${currentTheme.colors.accent}20);`">
                     <span class="text-xl" :style="`color: ${transaction.type === 'income' ? currentTheme.colors.success : currentTheme.colors.error};`">
-                      {{ getCategoryIcon(transaction.category) }}
+                      {{ getCategoryIcon(transaction.category_id) }}
                     </span>
                   </div>
                 </div>
@@ -178,7 +178,7 @@
                 <div class="ml-4 flex-grow">
                   <div class="flex justify-between items-start">
                     <p class="font-medium" :class="`text-[${currentTheme.colors.text}]`">
-                      {{ getCategoryName(transaction.category) }}
+                      {{ getCategoryName(transaction.category_id) }}
                     </p>
                     <span
                       class="font-bold text-base"
@@ -269,8 +269,11 @@ const { user, isLoading } = useSupabaseAuth()
 
 onMounted(async () => {
   // 等待 user 狀態 ready
-  while (isLoading.value) {
-    await new Promise(resolve => setTimeout(resolve, 100))
+  {
+    const start = Date.now()
+    while (isLoading.value && Date.now() - start < 2000) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
   }
   if (user.value) {
     await initializeSupabase()

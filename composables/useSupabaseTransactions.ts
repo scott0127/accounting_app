@@ -4,6 +4,40 @@ import { useSupabase } from "./useSupabase";
 import { useSupabaseAuth } from "./useSupabaseAuth";
 import { useErrorHandler } from "./useErrorHandler";
 import type { Transaction, Category, MonthlyStats } from "~/types";
+import { Preferences } from '@capacitor/preferences'
+
+// Module-scope singleton state to avoid duplicate instances/fetches
+const transactions = ref<Transaction[]>([])
+const categories = ref<Category[]>([])
+const loading = ref(false)
+const initialized = ref(false)
+let inflightFetch: Promise<Transaction[] | null> | null = null
+let lastFetchedAt: number | null = null
+let lastUserId: string | null = null
+const FETCH_TTL_MS = 30_000 // 30 秒 TTL，短期快取以降低重複請求
+
+// 本地快取（以使用者為 Key）
+const cacheKeyForUser = (uid: string) => `supabase:transactions:${uid}`
+const loadCachedTransactions = async (uid: string) => {
+  try {
+    const { value } = await Preferences.get({ key: cacheKeyForUser(uid) })
+    if (value) {
+      const parsed: Transaction[] = JSON.parse(value)
+      if (Array.isArray(parsed) && parsed.length > 0 && transactions.value.length === 0) {
+        transactions.value = parsed
+      }
+    }
+  } catch (e) {
+    console.warn('Load cached transactions failed', e)
+  }
+}
+const saveCachedTransactions = async (uid: string, data: Transaction[]) => {
+  try {
+    await Preferences.set({ key: cacheKeyForUser(uid), value: JSON.stringify(data) })
+  } catch (e) {
+    console.warn('Save cached transactions failed', e)
+  }
+}
 
 export function useSupabaseTransactions() {
   const supabase = useSupabase();
@@ -13,11 +47,6 @@ export function useSupabaseTransactions() {
     logErrors: true,
     defaultMessage: '交易操作失敗'
   });
-
-  const transactions = ref<Transaction[]>([]);
-  const categories = ref<Category[]>([]);
-  const loading = ref(false);
-  const initialized = ref(false);
 
   // 計算屬性
   const hasTransactions = computed(() => transactions.value.length > 0);
@@ -49,13 +78,14 @@ export function useSupabaseTransactions() {
 
     return await errorHandler.withErrorHandling(
       async () => {
-        // 加載類別
-        await fetchCategories();
-
-        // 如果已登入，加載交易
+        // 先以快取回填（若有），再並行撈取最新
         if (user.value) {
-          await fetchTransactions();
+          await loadCachedTransactions(user.value.id)
         }
+        await Promise.all([
+          fetchCategories(),
+          user.value ? fetchTransactions() : Promise.resolve(null)
+        ])
 
         initialized.value = true;
       },
@@ -74,22 +104,43 @@ export function useSupabaseTransactions() {
 
     return await errorHandler.withErrorHandling(
       async () => {
-        loading.value = true;
+        const now = Date.now()
+        const uid = user.value!.id
 
-        const { data, error: err } = await supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user.value!.id)
-          .order("date", { ascending: false });
+        // 短期快取：同一使用者且在 TTL 內且已有資料，直接返回現有資料
+        if (
+          lastUserId === uid &&
+          lastFetchedAt &&
+          now - lastFetchedAt < FETCH_TTL_MS &&
+          transactions.value.length > 0
+        ) {
+          return transactions.value
+        }
+
+        // 合併同時進行中的請求
+        if (inflightFetch) {
+          return await inflightFetch
+        }
+
+        loading.value = true;
+  inflightFetch = (async () => {
+          const { data, error: err } = await supabase
+            .from("transactions")
+            .select("id, amount, type, category_id, date, description, user_id")
+            .eq("user_id", uid)
+            .order("date", { ascending: false });
 
         if (err) {
           console.error("Supabase fetch error:", err);
           throw err;
         }
 
-        if (!data) {
+    if (!data) {
           transactions.value = [];
-          return;
+      lastFetchedAt = now
+      lastUserId = uid
+      await saveCachedTransactions(uid, [])
+      return []
         }
 
         // 轉換資料格式以匹配前端模型
@@ -103,8 +154,15 @@ export function useSupabaseTransactions() {
           note: item.description || "",
         }));
 
-        transactions.value = formattedData;
-        return formattedData;
+    transactions.value = formattedData;
+      lastFetchedAt = now
+      lastUserId = uid
+      await saveCachedTransactions(uid, formattedData)
+      return formattedData
+        })()
+
+        const result = await inflightFetch
+        return result
       },
       {
         context: '獲取交易資料',
@@ -113,6 +171,7 @@ export function useSupabaseTransactions() {
       }
     ).finally(() => {
       loading.value = false;
+      inflightFetch = null
     });
   };  // 依月份獲取統計資料
   const getMonthlyStats = (month: string): MonthlyStats => {

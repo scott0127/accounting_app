@@ -63,7 +63,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useTheme } from '~/composables'
 
 interface Props {
   title?: string
