@@ -187,11 +187,13 @@
       <!-- 手動類別選擇（美化版，component 實作） -->
       <CategorySelector
         v-if="showManualCategorySelector"
-        :model-value="aiSelectedCategory"
+        :model-value="aiSelectedCategories"
         :categories="manualCategoryType === 'income' ? incomeCategories : expenseCategories"
         :type="manualCategoryType"
         type-switchable
-        @update:modelValue="aiSelectedCategory = $event"
+        multiple
+        :max-selection="3"
+        @update:modelValue="aiSelectedCategories = $event as string[]"
         @update:type="manualCategoryType = $event"
       />
 
@@ -635,10 +637,12 @@
       <CategorySelector
         v-if="mode === 'expense'"
         :categories="expenseCategories"
-        :model-value="selectedCategory"
+        :model-value="selectedCategories"
         :type="'expense'"
         label="類別"
-        @update:modelValue="selectedCategory = $event"
+        multiple
+        :max-selection="3"
+        @update:modelValue="selectedCategories = $event as string[]"
       />
 
       <!-- 日期選擇（支出模式） -->
@@ -691,10 +695,12 @@
       <CategorySelector
         v-if="mode === 'income'"
         :categories="incomeCategories"
-        :model-value="selectedCategory"
+        :model-value="selectedCategories"
         :type="'income'"
         label="類別"
-        @update:modelValue="selectedCategory = $event"
+        multiple
+        :max-selection="3"
+        @update:modelValue="selectedCategories = $event as string[]"
       />
 
       <!-- 日期選擇（收入模式） -->
@@ -845,6 +851,7 @@ const llmResult = ref<{
 const isProcessing = ref(false);
 const showManualCategorySelector = ref(false);
 const aiSelectedCategory = ref("");
+const aiSelectedCategories = ref<string[]>([]);
 const intermediateResult = ref<Partial<typeof llmResult.value> | null>(null);
 let extractedAmount = ref(0);
 let debounceTimeout: any = null;
@@ -1114,6 +1121,7 @@ const incomeCategories = computed(() => {
 // 表單數據
 const amount = ref("");
 const selectedCategory = ref("");
+const selectedCategories = ref<string[]>([]);
 const date = ref(dayjs().format("YYYY-MM-DD"));
 const note = ref("");
 
@@ -1121,12 +1129,14 @@ const note = ref("");
 const resetForm = () => {
   amount.value = "";
   selectedCategory.value = "";
+  selectedCategories.value = [];
   date.value = dayjs().format("YYYY-MM-DD");
   aiDescription.value = "";
   classificationResult.value = null;
   llmResult.value = null;
   showManualCategorySelector.value = false;
   aiSelectedCategory.value = "";
+  aiSelectedCategories.value = [];
   isProcessing.value = false;
 
   if (debounceTimeout) {
@@ -1158,11 +1168,11 @@ watch(mode, (newMode) => {
 
 // 驗證表單
 const isExpenseValid = computed(() => {
-  return amount.value && selectedCategory.value && date.value;
+  return amount.value && (selectedCategories.value.length > 0 || selectedCategory.value) && date.value;
 });
 
 const isIncomeValid = computed(() => {
-  return amount.value && selectedCategory.value && date.value;
+  return amount.value && (selectedCategories.value.length > 0 || selectedCategory.value) && date.value;
 });
 
 const isAIValid = computed(() => {
@@ -1230,8 +1240,11 @@ const classifyWithLLMApiStreaming = async () => {
     extractedAmount.value = matches ? parseInt(matches[0]) : 0;
     
     // 設置類別
-    if (!showManualCategorySelector.value || !aiSelectedCategory.value) {
+    if (!showManualCategorySelector.value || aiSelectedCategory.value === "") {
       aiSelectedCategory.value = result.categoryId;
+    }
+    if (!showManualCategorySelector.value || aiSelectedCategories.value.length === 0) {
+      aiSelectedCategories.value = [result.categoryId];
     }
     
   } catch (error: unknown) {
@@ -1277,8 +1290,11 @@ const classifyWithLLMApi = async () => {
     extractedAmount.value = matches ? parseInt(matches[0]) : 0;
     
     // 設置類別
-    if (!showManualCategorySelector.value || !aiSelectedCategory.value) {
+    if (!showManualCategorySelector.value || aiSelectedCategory.value === "") {
       aiSelectedCategory.value = result.categoryId;
+    }
+    if (!showManualCategorySelector.value || aiSelectedCategories.value.length === 0) {
+      aiSelectedCategories.value = [result.categoryId];
     }
   } catch (error: unknown) {
     console.error("LLM classification failed:", error);
@@ -1304,13 +1320,13 @@ const classifyWithLLMApi = async () => {
 // 處理 AI 記帳提交
 const handleSubmitAI = async () => {
   if (!aiDescription.value || !llmResult.value || isProcessing.value) return;
-  const finalCategoryId = showManualCategorySelector.value
-    ? aiSelectedCategory.value
-    : llmResult.value.categoryId;
+  const finalCategoryIds = showManualCategorySelector.value
+    ? (aiSelectedCategories.value.length ? aiSelectedCategories.value : [aiSelectedCategory.value])
+    : [llmResult.value.categoryId];
 
   // 取得目前選擇的 category
   const categoryList = [...incomeCategories.value, ...expenseCategories.value];
-  const category = categoryList.find((c) => c.id === finalCategoryId);
+  const category = categoryList.find((c) => c.id === finalCategoryIds[0]);
 
   if (!category) {
     alert("找不到對應的分類，請重新選擇");
@@ -1327,15 +1343,12 @@ const handleSubmitAI = async () => {
     await addTransaction({
       amount: extractedAmount.value,
       type: finalType,
-      category_id: finalCategoryId,
+      category_ids: finalCategoryIds.slice(0, 3),
       date: date.value,
       description: llmResult.value.description || aiDescription.value,
     });
-    if (
-      showManualCategorySelector.value &&
-      finalCategoryId !== llmResult.value.categoryId
-    ) {
-      rememberCorrection(aiDescription.value, finalCategoryId);
+    if (showManualCategorySelector.value && finalCategoryIds[0] !== llmResult.value.categoryId) {
+      rememberCorrection(aiDescription.value, finalCategoryIds[0]);
     }
     router.push("/transactions");
   } catch (error: unknown) {
@@ -1352,7 +1365,7 @@ const handleSubmitExpense = async () => {
     await addTransaction({
       amount: Number(amount.value),
       type: "expense",
-      category_id: selectedCategory.value, // 使用 category_id 而不是 category
+  category_ids: (selectedCategories.value.length ? selectedCategories.value.slice(0, 3) : [selectedCategory.value]),
       date: date.value,
       description: note.value || "", // 確保有預設值
     });
@@ -1373,7 +1386,7 @@ const handleSubmitIncome = async () => {
     await addTransaction({
       amount: Number(amount.value),
       type: "income",
-      category_id: selectedCategory.value, // 使用 category_id 而不是 category
+  category_ids: (selectedCategories.value.length ? selectedCategories.value.slice(0, 3) : [selectedCategory.value]),
       date: date.value,
       description: note.value || "", // 確保有預設值
     });

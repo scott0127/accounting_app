@@ -2,7 +2,7 @@
  * 優化的 Supabase 交易管理 composable
  * 使用統一的錯誤處理和更好的類型安全
  */
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, readonly } from "vue";
 import { useSupabase } from "./useSupabase";
 import { useSupabaseAuth } from "./useSupabaseAuth";
 import { useErrorHandler } from "./useErrorHandler";
@@ -62,7 +62,7 @@ export function useSupabaseTransactionsV2() {
 
         const { data, error } = await supabase
           .from("transactions")
-          .select("*")
+          .select("id, amount, type, date, description, category_id, category_ids")
           .eq("user_id", user.value!.id)
           .order("date", { ascending: false });
 
@@ -73,16 +73,25 @@ export function useSupabaseTransactionsV2() {
           return [];
         }
 
-        // 轉換資料格式以匹配前端模型
-        const formattedData: Transaction[] = data.map((item: any) => ({
-          id: item.id.toString(),
-          amount: item.amount,
-          type: item.type || "expense",
-          category_id: item.category_id || "",
-          date: new Date(item.date).toISOString().split("T")[0],
-          description: item.description || "",
-          note: item.description || ""
-        }));
+        // 轉換資料格式以匹配前端模型（支援 category_ids，日期正規化）
+        const formattedData: Transaction[] = data.map((item: any) => {
+          const primaryCategory = (Array.isArray(item.category_ids) && item.category_ids.length > 0)
+            ? item.category_ids[0]
+            : (item.category_id || "");
+          const category_ids = Array.isArray(item.category_ids)
+            ? item.category_ids.slice(0, 3)
+            : (primaryCategory ? [primaryCategory] : []);
+          return {
+            id: String(item.id),
+            amount: item.amount,
+            type: item.type || "expense",
+            category_id: primaryCategory || undefined,
+            category_ids,
+            date: new Date(item.date).toISOString().split("T")[0],
+            description: item.description || "",
+            note: (item as any).note ?? (item.description || "")
+          } as Transaction;
+        });
 
         transactions.value = formattedData;
         return formattedData;
@@ -143,10 +152,13 @@ export function useSupabaseTransactionsV2() {
         stats.totalExpense += t.amount;
       }
 
-      if (!stats.categories[t.category_id]) {
-        stats.categories[t.category_id] = 0;
+      const primary = (t.category_ids && t.category_ids.length > 0)
+        ? t.category_ids[0]
+        : (t.category_id || 'uncategorized');
+      if (!stats.categories[primary]) {
+        stats.categories[primary] = 0;
       }
-      stats.categories[t.category_id] += t.amount;
+      stats.categories[primary] += t.amount;
     });
 
     stats.balance = stats.totalIncome - stats.totalExpense;
@@ -164,14 +176,22 @@ export function useSupabaseTransactionsV2() {
 
     return await errorHandler.withErrorHandling(
       async () => {
-        const supabaseTransaction = {
+        const category_ids = Array.isArray(transaction.category_ids)
+          ? transaction.category_ids.slice(0, 3)
+          : (transaction.category_id ? [transaction.category_id] : null);
+
+        const supabaseTransaction: Record<string, any> = {
           amount: transaction.amount,
           type: transaction.type,
           date: transaction.date,
           description: transaction.description || "",
-          category_id: transaction.category_id,
           user_id: user.value!.id,
         };
+
+        if (category_ids && category_ids.length > 0) {
+          supabaseTransaction.category_ids = category_ids;
+          supabaseTransaction.category_id = category_ids[0];
+        }
 
         const { data, error } = await supabase
           .from("transactions")
@@ -182,13 +202,16 @@ export function useSupabaseTransactionsV2() {
         if (error) throw error;
 
         const newTransaction: Transaction = {
-          id: data.id.toString(),
+          id: String(data.id),
           amount: data.amount,
           type: data.type,
-          category_id: data.category_id,
+          category_id: data.category_id || undefined,
+          category_ids: Array.isArray(data.category_ids)
+            ? data.category_ids.slice(0, 3)
+            : (data.category_id ? [data.category_id] : []),
           date: new Date(data.date).toISOString().split("T")[0],
           description: data.description || "",
-          note: data.description || ""
+          note: (data as any).note ?? (data.description || "")
         };
 
         // 更新本地狀態
@@ -221,7 +244,14 @@ export function useSupabaseTransactionsV2() {
         if (updates.type !== undefined) supabaseUpdates.type = updates.type;
         if (updates.date !== undefined) supabaseUpdates.date = updates.date;
         if (updates.description !== undefined) supabaseUpdates.description = updates.description;
-        if (updates.category_id !== undefined) supabaseUpdates.category_id = updates.category_id;
+        if (Array.isArray(updates.category_ids)) {
+          supabaseUpdates.category_ids = updates.category_ids.slice(0, 3);
+          // 同步主要分類
+          supabaseUpdates.category_id = updates.category_ids[0] || null;
+        } else if (updates.category_id !== undefined) {
+          supabaseUpdates.category_id = updates.category_id;
+          supabaseUpdates.category_ids = updates.category_id ? [updates.category_id] : [];
+        }
 
         if (Object.keys(supabaseUpdates).length === 0) {
           console.warn("No fields to update");
@@ -239,10 +269,17 @@ export function useSupabaseTransactionsV2() {
         // 更新本地資料
         const index = transactions.value.findIndex((t) => t.id === id);
         if (index > -1) {
-          transactions.value[index] = {
-            ...transactions.value[index],
-            ...updates
-          };
+          const existing = transactions.value[index];
+          const merged: Transaction = {
+            ...existing,
+            ...updates,
+            category_ids: Array.isArray(updates.category_ids)
+              ? updates.category_ids.slice(0, 3)
+              : (Array.isArray(existing.category_ids) ? existing.category_ids : (existing.category_id ? [existing.category_id] : [])),
+          } as Transaction;
+          // 同步 category_id 以保持一致
+          merged.category_id = (merged.category_ids && merged.category_ids[0]) || updates.category_id || existing.category_id;
+          transactions.value[index] = merged;
         }
 
         return true;
@@ -293,14 +330,20 @@ export function useSupabaseTransactionsV2() {
 
     const result = await errorHandler.withErrorHandling(
       async () => {
-        const supabaseTransactions = transactionList.map(transaction => ({
-          amount: transaction.amount,
-          type: transaction.type,
-          date: transaction.date,
-          description: transaction.description || "",
-          category_id: transaction.category_id,
-          user_id: user.value!.id,
-        }));
+        const supabaseTransactions = transactionList.map(transaction => {
+          const category_ids = Array.isArray(transaction.category_ids)
+            ? transaction.category_ids.slice(0, 3)
+            : (transaction.category_id ? [transaction.category_id] : []);
+          return {
+            amount: transaction.amount,
+            type: transaction.type,
+            date: transaction.date,
+            description: transaction.description || "",
+            category_id: category_ids[0] || null,
+            category_ids,
+            user_id: user.value!.id,
+          };
+        });
 
         const { data, error } = await supabase
           .from("transactions")
@@ -310,13 +353,16 @@ export function useSupabaseTransactionsV2() {
         if (error) throw error;
 
         const newTransactions: Transaction[] = (data || []).map((item: any) => ({
-          id: item.id.toString(),
+          id: String(item.id),
           amount: item.amount,
           type: item.type,
-          category_id: item.category_id,
+          category_id: item.category_id || undefined,
+          category_ids: Array.isArray(item.category_ids)
+            ? item.category_ids.slice(0, 3)
+            : (item.category_id ? [item.category_id] : []),
           date: new Date(item.date).toISOString().split("T")[0],
           description: item.description || "",
-          note: item.description || ""
+          note: (item as any).note ?? (item.description || "")
         }));
 
         // 更新本地狀態

@@ -39,6 +39,28 @@ const saveCachedTransactions = async (uid: string, data: Transaction[]) => {
   }
 }
 
+// 正規化：確保 category_ids 與 category_id 一致，且日期為 YYYY-MM-DD
+const normalizeTransaction = (raw: any): Transaction => {
+  const ids: string[] = Array.isArray(raw.category_ids)
+    ? raw.category_ids.filter(Boolean)
+    : (raw.category_id ? [raw.category_id] : [])
+
+  const primary = ids[0] || raw.category_id || ''
+
+  return {
+    id: String(raw.id),
+    amount: Number(raw.amount),
+    type: (raw.type === 'income' ? 'income' : 'expense'),
+    category_id: primary || undefined,
+    category_ids: ids.length ? ids.slice(0, 3) : undefined,
+    date: new Date(raw.date).toISOString().split('T')[0],
+    description: raw.description || '',
+  note: (raw.note ?? (raw.description || ''))
+  }
+}
+
+const normalizeTransactions = (rows: any[]): Transaction[] => rows.map(normalizeTransaction)
+
 export function useSupabaseTransactions() {
   const supabase = useSupabase();
   const { user } = useSupabaseAuth();
@@ -122,11 +144,11 @@ export function useSupabaseTransactions() {
           return await inflightFetch
         }
 
-        loading.value = true;
-  inflightFetch = (async () => {
+    loading.value = true;
+    inflightFetch = (async () => {
           const { data, error: err } = await supabase
             .from("transactions")
-            .select("id, amount, type, category_id, date, description, user_id")
+      .select("id, amount, type, category_id, category_ids, date, description, user_id")
             .eq("user_id", uid)
             .order("date", { ascending: false });
 
@@ -135,30 +157,22 @@ export function useSupabaseTransactions() {
           throw err;
         }
 
-    if (!data) {
+        if (!data) {
           transactions.value = [];
-      lastFetchedAt = now
-      lastUserId = uid
-      await saveCachedTransactions(uid, [])
-      return []
+          lastFetchedAt = now
+          lastUserId = uid
+          await saveCachedTransactions(uid, [])
+          return []
         }
 
-        // 轉換資料格式以匹配前端模型
-        const formattedData: Transaction[] = data.map((item: any) => ({
-          id: item.id.toString(),
-          amount: item.amount,
-          type: item.type || "expense",
-          category_id: item.category_id || "",
-          date: new Date(item.date).toISOString().split("T")[0],
-          description: item.description || "",
-          note: item.description || "",
-        }));
+        // 正規化資料格式
+        const formattedData: Transaction[] = normalizeTransactions(data as any[])
 
-    transactions.value = formattedData;
-      lastFetchedAt = now
-      lastUserId = uid
-      await saveCachedTransactions(uid, formattedData)
-      return formattedData
+        transactions.value = formattedData;
+        lastFetchedAt = now
+        lastUserId = uid
+        await saveCachedTransactions(uid, formattedData)
+        return formattedData
         })()
 
         const result = await inflightFetch
@@ -193,10 +207,13 @@ export function useSupabaseTransactions() {
         stats.totalExpense += t.amount;
       }
 
-      if (!stats.categories[t.category_id]) {
-        stats.categories[t.category_id] = 0;
+      const primaryCategory = (t.category_ids && t.category_ids[0]) || t.category_id
+      if (primaryCategory) {
+        if (!stats.categories[primaryCategory]) {
+          stats.categories[primaryCategory] = 0;
+        }
+        stats.categories[primaryCategory] += t.amount;
       }
-      stats.categories[t.category_id] += t.amount;
     });
 
     stats.balance = stats.totalIncome - stats.totalExpense;
@@ -216,14 +233,20 @@ export function useSupabaseTransactions() {
         loading.value = true;
 
         // 根據實際資料庫結構調整欄位
-        const supabaseTransaction = {
+        const supabaseTransaction: Record<string, any> = {
           amount: transaction.amount,
           type: transaction.type,
           date: transaction.date,
           description: transaction.description || "",
-          category_id: transaction.category_id,
           user_id: user.value!.id,
         };
+
+        // 寫入分類（優先使用 category_ids，相容舊欄位）
+        if (transaction.category_ids && transaction.category_ids.length) {
+          supabaseTransaction.category_ids = transaction.category_ids.slice(0, 3)
+        } else if (transaction.category_id) {
+          supabaseTransaction.category_id = transaction.category_id
+        }
 
         console.log("addTransaction payload", supabaseTransaction);
 
@@ -239,15 +262,7 @@ export function useSupabaseTransactions() {
         }
 
         // 轉換日期格式並新增到本地資料
-        const newTransaction: Transaction = {
-          id: data.id.toString(),
-          amount: data.amount,
-          type: data.type,
-          category_id: data.category_id || "",
-          date: new Date(data.date).toISOString().split("T")[0],
-          description: data.description || "",
-          note: data.description || "",
-        };
+  const newTransaction: Transaction = normalizeTransaction(data)
 
         transactions.value = [newTransaction, ...transactions.value];
         return newTransaction;
@@ -300,7 +315,11 @@ export function useSupabaseTransactions() {
           supabaseUpdates.description = updates.note;
         }
 
-        // 處理 category_id 欄位
+        // 處理分類欄位（優先 category_ids）
+        if ("category_ids" in updates && updates.category_ids !== undefined) {
+          supabaseUpdates.category_ids = (updates.category_ids || []).slice(0, 3)
+        }
+        // 相容舊欄位
         if ("category_id" in updates && updates.category_id !== undefined) {
           supabaseUpdates.category_id = updates.category_id;
         }
@@ -331,10 +350,8 @@ export function useSupabaseTransactions() {
         // 更新本地資料
         const index = transactions.value.findIndex((t) => t.id === id);
         if (index > -1) {
-          transactions.value[index] = {
-            ...transactions.value[index],
-            ...updates,
-          };
+          const merged = { ...transactions.value[index], ...updates }
+          transactions.value[index] = normalizeTransaction(merged)
           console.log("交易更新成功，本地資料已更新:", transactions.value[index]);
         } else {
           console.warn("找不到要更新的交易記錄:", id);

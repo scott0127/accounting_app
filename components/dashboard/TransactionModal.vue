@@ -41,7 +41,7 @@
             <div :class="`p-1 rounded-lg flex bg-[${currentTheme.colors.background}]`">
               <button 
                 v-for="(mode, index) in modes" :key="mode.value"
-                @click="transactionMode = mode.value"
+                @click="setMode(mode.value)"
                 class="flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200"
                 :class="transactionMode === mode.value ? getActiveTabClassThemed(mode.value) : `text-[${currentTheme.colors.textLight}]`"
               >
@@ -122,31 +122,38 @@
               </div>
             </div>
 
-            <!-- 類別選擇 - 更適合移動端的網格 -->
+            <!-- 類別選擇（支援多選，最多3個，第一個作為主要分類） -->
             <div class="mb-5">
-              <label :class="`block text-sm font-medium mb-2 text-[${currentTheme.colors.text}]`">類別</label>
+              <div class="flex items-center justify-between mb-2">
+                <label :class="`block text-sm font-medium text-[${currentTheme.colors.text}]`">類別</label>
+                <span class="text-xs" :class="`text-[${currentTheme.colors.textLight}]`">可選最多 3 個，第一個會計入統計</span>
+              </div>
               <div :class="`grid grid-cols-4 gap-3 p-2 rounded-lg bg-[${currentTheme.colors.background}]`">
                 <button
                   v-for="category in currentCategories"
                   :key="category.id"
                   type="button"
-                  class="aspect-square flex flex-col items-center justify-center p-2 rounded-lg transition-all"
-                  :class="transactionData.category === category.id ? 
+                  class="aspect-square flex flex-col items-center justify-center p-2 rounded-lg transition-all relative"
+                  :class="isSelected(category.id) ? 
                     `bg-[${currentTheme.colors.primary}15] border-2 border-[${currentTheme.colors.primary}] shadow` : 
                     `bg-[${currentTheme.colors.surface}] border border-[${currentTheme.colors.textLight}40] hover:border-[${currentTheme.colors.primary}40]`"
-                  @click="transactionData.category = category.id"
+                  @click="toggleCategory(category.id)"
                 >
-                  <div class="text-2xl mb-1" :class="transactionData.category === category.id ? 'scale-110' : ''">
+                  <div class="text-2xl mb-1" :class="isSelected(category.id) ? 'scale-110' : ''">
                     {{ category.icon }}
                   </div>
                   <span class="text-xs truncate w-full text-center" 
-                        :class="transactionData.category === category.id ? 
+                        :class="isSelected(category.id) ? 
                           `text-[${currentTheme.colors.primary}] font-medium` : 
                           `text-[${currentTheme.colors.textLight}]`">
                     {{ category.name }}
                   </span>
+                  <span v-if="isSelected(category.id)"
+                        class="absolute top-1 right-1 text-[10px] bg-[${currentTheme.colors.primary}] text-white rounded-full w-5 h-5 flex items-center justify-center">
+                    {{ selectionIndex(category.id) + 1 }}
+                  </span>
                 </button>
-                
+
                 <!-- 捲動提示 -->
                 <div v-if="currentCategories.length > 8" class="col-span-4 -mt-1">
                   <div class="flex justify-center">
@@ -275,8 +282,11 @@ const { currentTheme } = useTheme()
 interface TransactionData {
   id?: string;
   type: 'income' | 'expense';
-  category: string; // 前端界面使用 category，但會轉換為 category_id 傳給後端
-  category_id?: string; // 增加 category_id 欄位以支持 Supabase 結構
+  // 單選相容欄位（保留以讀取舊資料）
+  category: string;
+  category_id?: string;
+  // 新欄位：多分類（最多3個），第一個為主要分類
+  category_ids?: string[];
   amount: number | string;
   date: string;
   description?: string;
@@ -321,6 +331,7 @@ const transactionMode = ref<TransactionMode>('expense')
 const transactionData = ref<TransactionData>({
   type: 'expense',
   category: '',
+  category_ids: [],
   amount: '',
   date: new Date().toISOString().split('T')[0],
   description: ''
@@ -339,11 +350,17 @@ const currentCategories = computed(() => {
   return props.categories.filter(c => c.type === type)
 })
 
+// 模式切換（避免模板中的型別報錯）
+const setMode = (m: any) => {
+  transactionMode.value = m as TransactionMode
+}
+
 // Reset the form to defaults
 const resetForm = () => {
   transactionData.value = {
     type: transactionMode.value === 'income' ? 'income' : 'expense',
     category: '',
+  category_ids: [],
     amount: '',
     date: new Date().toISOString().split('T')[0],
     description: ''
@@ -367,8 +384,10 @@ const isValid = computed(() => {
   
   // 對一般模式的驗證邏輯（支出/收入）
   const amount = Number(transactionData.value.amount)
-  
-  return amount > 0 && transactionData.value.category !== ''
+  const hasCategories = Array.isArray(transactionData.value.category_ids)
+    ? transactionData.value.category_ids.length > 0
+    : (transactionData.value.category !== '')
+  return amount > 0 && hasCategories
 })
 
 // Auto-classify the expense based on description
@@ -399,6 +418,14 @@ watch(transactionMode, (newMode) => {
 watch(() => props.transaction, (newVal) => {
   if (newVal) {
     transactionData.value = { ...newVal }
+    // 若有舊資料僅有 category/category_id，轉為 category_ids 以利編輯
+    if (!Array.isArray(transactionData.value.category_ids) || transactionData.value.category_ids.length === 0) {
+      const primary = (transactionData.value.category_id || transactionData.value.category || '')
+      transactionData.value.category_ids = primary ? [primary] : []
+    } else {
+      // 限制最多3個
+      transactionData.value.category_ids = transactionData.value.category_ids.slice(0, 3)
+    }
     expenseDescription.value = newVal.description || ''
     transactionMode.value = newVal.type === 'income' ? 'income' : 'expense'
     
@@ -416,6 +443,31 @@ const getCategoryName = (categoryId: string): string => {
   return category ? category.name : categoryId
 }
 
+// 多選支援
+const isSelected = (id: string) => {
+  const ids = Array.isArray(transactionData.value.category_ids) ? transactionData.value.category_ids : []
+  return ids.includes(id)
+}
+
+const selectionIndex = (id: string) => {
+  const ids = Array.isArray(transactionData.value.category_ids) ? transactionData.value.category_ids : []
+  return ids.indexOf(id)
+}
+
+const toggleCategory = (id: string) => {
+  const ids = Array.isArray(transactionData.value.category_ids) ? [...transactionData.value.category_ids] : []
+  const idx = ids.indexOf(id)
+  if (idx > -1) {
+    ids.splice(idx, 1)
+  } else {
+    if (ids.length >= 3) return
+    ids.push(id)
+  }
+  transactionData.value.category_ids = ids
+  transactionData.value.category = ids[0] || ''
+  transactionData.value.category_id = ids[0] || ''
+}
+
 // Save the transaction
 const saveTransaction = () => {
   if (!isValid.value) return
@@ -427,12 +479,19 @@ const saveTransaction = () => {
     dataToSave.type = 'expense'
     dataToSave.description = expenseDescription.value
     dataToSave.amount = extractAmountFromDescription(expenseDescription.value)
-    dataToSave.category = classificationResult.value?.categoryId || 'food'
-    dataToSave.category_id = classificationResult.value?.categoryId || 'food'
+    const primary = classificationResult.value?.categoryId || 'food'
+    dataToSave.category = primary
+    dataToSave.category_id = primary
+    dataToSave.category_ids = [primary]
   } else {
     // 一般模式處理
     dataToSave.description = expenseDescription.value
-    dataToSave.category_id = dataToSave.category
+    // 若多選存在，使用多選；否則退回單一 category
+    const ids = Array.isArray(dataToSave.category_ids) && dataToSave.category_ids.length > 0
+      ? dataToSave.category_ids.slice(0, 3)
+      : (dataToSave.category ? [dataToSave.category] : [])
+    dataToSave.category_ids = ids
+    dataToSave.category_id = ids[0] || ''
   }
   
   // 確保前端也能顯示 note，但是不會傳送到後端
@@ -629,6 +688,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* 美化日期選擇器 */

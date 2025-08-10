@@ -147,58 +147,19 @@
           </div>
 
           <!-- 交易列表 - 卡片添加漸層邊框效果 -->
-          <div class="space-y-3">
-            <div
+          <div class="space-y-1">
+            <TransactionItem
               v-for="transaction in group"
               :key="transaction.id"
-              class="p-4 rounded-xl transition-all duration-200 transform cursor-pointer relative"
-              :class="`bg-[${currentTheme.colors.surface}] hover:shadow-md hover:-translate-y-0.5`"
-              @click="editTransaction(transaction)"
-              :style="`box-shadow: 0 0 0 1px ${transaction.type === 'income' ? currentTheme.colors.success + '20' : currentTheme.colors.error + '20'};`"
-            >
-              <!-- 左側色彩指示條 -->
-              <div class="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" 
-                   :style="`background: ${transaction.type === 'income' ? currentTheme.colors.success : currentTheme.colors.error};`">
-              </div>
-              
-              <div class="flex items-center">
-                <!-- 類別圖標 - 更可愛的設計 -->
-                <div class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center shadow-sm float-icon overflow-hidden" 
-                     :style="`background: linear-gradient(135deg, ${transaction.type === 'income' ? currentTheme.colors.success + '30' : currentTheme.colors.error + '30'}, ${currentTheme.colors.background});`">
-                  <!-- 自訂圖示的容器，添加可愛效果 -->
-                  <div class="w-8 h-8 rounded-full flex items-center justify-center"
-                       :style="`background: linear-gradient(135deg, ${currentTheme.colors.primary}30, ${currentTheme.colors.accent}20);`">
-                    <span class="text-xl" :style="`color: ${transaction.type === 'income' ? currentTheme.colors.success : currentTheme.colors.error};`">
-                      {{ getCategoryIcon(transaction.category_id) }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- 交易內容 -->
-                <div class="ml-4 flex-grow">
-                  <div class="flex justify-between items-start">
-                    <p class="font-medium" :class="`text-[${currentTheme.colors.text}]`">
-                      {{ getCategoryName(transaction.category_id) }}
-                    </p>
-                    <span
-                      class="font-bold text-base"
-                      :class="transaction.type === 'income' ? `text-[${currentTheme.colors.success}]` : `text-[${currentTheme.colors.error}]`"
-                    >
-                      {{ transaction.type === 'income' ? '+' : '-' }}{{ formatAmount(transaction.amount) }}
-                    </span>
-                  </div>
-                  
-                  <div class="flex justify-between items-center mt-1">
-                    <p class="text-xs" :class="`text-[${currentTheme.colors.textLight}]`">
-                      {{ transaction.description || transaction.note || '無備註' }}
-                    </p>
-                    <span class="text-xs" :class="`text-[${currentTheme.colors.textLight}]`">
-                      {{ formatTime(transaction.date) }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              :transaction="transaction"
+              :get-category-icon="getCategoryIcon"
+              :get-category-name="getCategoryName"
+              :format-date="formatDateForList"
+              :format-currency="formatCurrencyForList"
+              :show-actions="false"
+              @edit="editTransaction"
+              @delete="handleTransactionDelete"
+            />
           </div>
         </div>
       </template>
@@ -264,6 +225,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/zh-tw'
 import TransactionModal from '~/components/dashboard/TransactionModal.vue'
 import { useSupabaseAuth } from '~/composables/useSupabaseAuth'
+import TransactionItem from '~/components/dashboard/TransactionItem.vue'
 const { currentTheme } = useTheme()
 const { user, isLoading } = useSupabaseAuth()
 
@@ -370,6 +332,14 @@ const getCategoryName = (categoryId: string) => {
   return categoryId
 }
 
+// 取得交易的次要分類（最多兩個）
+const getSecondaryCategoryIds = (t: any): string[] => {
+  if (Array.isArray(t?.category_ids) && t.category_ids.length > 1) {
+    return t.category_ids.slice(1, 3).filter(Boolean)
+  }
+  return []
+}
+
 const getDailyExpense = (transactions: any[]) => {
   return transactions
     .filter(t => t.type === 'expense' || !t.type) // 兼容沒有明確 type 的舊數據，默認為支出
@@ -384,6 +354,10 @@ const formatTime = (dateString: string) => {
   }
   return '全天';
 }
+
+// 提供給元件的格式化函式（具型別）
+const formatDateForList = (d: string) => dayjs(d).format('YYYY/MM/DD HH:mm')
+const formatCurrencyForList = (n: number) => formatAmount(n)
 
 // 獲取月份起始和結束日期範圍
 const getMonthsRange = () => {
@@ -455,7 +429,10 @@ const handleTransactionEdit = async (transaction: any) => {
       type: transaction.type,
       date: transaction.date,
       description: transaction.description || transaction.note || "",
-      category_id: transaction.category || transaction.category_id || ""
+      // 支援多分類：優先使用 category_ids，否則回退至單一 category/category_id
+      category_ids: Array.isArray(transaction.category_ids) && transaction.category_ids.length > 0
+        ? transaction.category_ids.slice(0, 3)
+        : ((transaction.category ? [transaction.category] : (transaction.category_id ? [transaction.category_id] : [])))
     }
     
     console.log('原始交易資料:', transaction)
@@ -467,7 +444,7 @@ const handleTransactionEdit = async (transaction: any) => {
       type: transactionToUpdate.type,
       date: transactionToUpdate.date,
       description: transactionToUpdate.description,
-      category_id: transactionToUpdate.category_id
+      category_ids: transactionToUpdate.category_ids
     })
     
     showEditModal.value = false

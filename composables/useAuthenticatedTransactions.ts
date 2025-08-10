@@ -26,19 +26,32 @@ export function useAuthenticatedTransactions() {
       
       const { data, error: supabaseError } = await supabase
         .from('transactions')
-        .select('*')
+        .select('id, amount, type, date, description, category_id, category_ids')
         .eq('user_id', user.value.id)
         .order('date', { ascending: false })
       
       if (supabaseError) throw supabaseError
       
       if (data) {
-        // 轉換日期格式為 YYYY-MM-DD
-        const formattedData = data.map((item: any) => ({
-          ...item,
-          id: item.id.toString(),
-          date: new Date(item.date).toISOString().split('T')[0]
-        }))
+        // 轉換日期格式為 YYYY-MM-DD 並正規化分類欄位
+        const formattedData = data.map((item: any) => {
+          const primary = (Array.isArray(item.category_ids) && item.category_ids.length > 0)
+            ? item.category_ids[0]
+            : (item.category_id || '')
+          const category_ids = Array.isArray(item.category_ids)
+            ? item.category_ids.slice(0, 3)
+            : (primary ? [primary] : [])
+          return {
+            id: String(item.id),
+            amount: item.amount,
+            type: item.type || 'expense',
+            category_id: primary || undefined,
+            category_ids,
+            date: new Date(item.date).toISOString().split('T')[0],
+            description: item.description || '',
+            note: (item as any).note ?? (item.description || '')
+          } as Transaction
+        })
         
         // 更新 store
         transactionStore.setTransactions(formattedData)
@@ -64,10 +77,19 @@ export function useAuthenticatedTransactions() {
       error.value = null
       
       // 首先插入到 Supabase
+      const category_ids = Array.isArray(transaction.category_ids)
+        ? transaction.category_ids.slice(0, 3)
+        : (transaction.category_id ? [transaction.category_id] : [])
+
       const { data, error: supabaseError } = await supabase
         .from('transactions')
         .insert({
-          ...transaction,
+          amount: transaction.amount,
+          type: transaction.type,
+          date: transaction.date,
+          description: transaction.description || '',
+          category_id: category_ids[0] || null,
+          category_ids,
           user_id: user.value.id
         })
         .select()
@@ -76,10 +98,15 @@ export function useAuthenticatedTransactions() {
       if (supabaseError) throw supabaseError
       
       // 轉換日期格式
-      const newTransaction = {
-        ...transaction,
-        id: data.id.toString(),
-        date: new Date(data.date).toISOString().split('T')[0]
+      const newTransaction: Transaction = {
+        id: String(data.id),
+        amount: data.amount,
+        type: data.type,
+        category_id: data.category_id || undefined,
+        category_ids: Array.isArray(data.category_ids) ? data.category_ids.slice(0, 3) : (data.category_id ? [data.category_id] : []),
+        date: new Date(data.date).toISOString().split('T')[0],
+        description: data.description || '',
+        note: (data as any).note ?? (data.description || '')
       }
       
       // 新增到 store
@@ -106,16 +133,38 @@ export function useAuthenticatedTransactions() {
       error.value = null
       
       // 更新 Supabase
+      const supabaseUpdates: Record<string, any> = {}
+      if (updates.amount !== undefined) supabaseUpdates.amount = updates.amount
+      if (updates.type !== undefined) supabaseUpdates.type = updates.type
+      if (updates.date !== undefined) supabaseUpdates.date = updates.date
+      if (updates.description !== undefined) supabaseUpdates.description = updates.description
+      if (Array.isArray(updates.category_ids)) {
+        supabaseUpdates.category_ids = updates.category_ids.slice(0, 3)
+        supabaseUpdates.category_id = updates.category_ids[0] || null
+      } else if (updates.category_id !== undefined) {
+        supabaseUpdates.category_id = updates.category_id
+        supabaseUpdates.category_ids = updates.category_id ? [updates.category_id] : []
+      }
+
       const { error: supabaseError } = await supabase
         .from('transactions')
-        .update(updates)
+        .update(supabaseUpdates)
         .eq('id', id)
         .eq('user_id', user.value.id)
       
       if (supabaseError) throw supabaseError
       
       // 更新 store
-      await transactionStore.updateTransaction(id, updates)
+      const mergedUpdates: Partial<Transaction> = {
+        ...updates,
+        category_ids: Array.isArray(updates.category_ids)
+          ? updates.category_ids.slice(0, 3)
+          : updates.category_id ? [updates.category_id] : undefined,
+        category_id: Array.isArray(updates.category_ids)
+          ? (updates.category_ids[0] || undefined)
+          : updates.category_id
+      }
+      await transactionStore.updateTransaction(id, mergedUpdates)
     } catch (err: any) {
       console.error('更新交易失敗:', err)
       error.value = err.message

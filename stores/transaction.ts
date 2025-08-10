@@ -65,11 +65,14 @@ export const useTransactionStore = defineStore('transaction', {
         } else {
           stats.totalExpense += t.amount
         }
-        
-        if (!stats.categories[t.category]) {
-          stats.categories[t.category] = 0
+        // 以主要分類統計：優先 category_ids[0]，再 category_id，再相容舊欄位 category
+        const primary = (Array.isArray((t as any).category_ids) && (t as any).category_ids.length > 0)
+          ? (t as any).category_ids[0]
+          : ((t as any).category_id || (t as any).category || 'uncategorized')
+        if (!stats.categories[primary]) {
+          stats.categories[primary] = 0
         }
-        stats.categories[t.category] += t.amount
+        stats.categories[primary] += t.amount
       })
 
       stats.balance = stats.totalIncome - stats.totalExpense

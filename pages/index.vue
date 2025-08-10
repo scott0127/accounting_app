@@ -582,138 +582,18 @@
             </button>
           </div>
           <div class="space-y-2">
-            <div
+            <TransactionItem
               v-for="transaction in displayTransactions"
               :key="transaction.id"
-              class="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b last:border-0 transition-all group/item hover:bg-[${currentTheme.colors.primary}07] hover:shadow-md rounded-xl"
-              :style="`
-                border-color: ${currentTheme.colors.primary}22;
-                background: transparent;
-              `"
-            >
-              <div class="flex items-center mb-2 sm:mb-0">
-                <span
-                  class="text-xl mr-3 flex items-center justify-center rounded-full shadow-sm transition-all"
-                  :style="`
-                    color: ${
-                      transaction.type === 'income'
-                        ? currentTheme.colors.success
-                        : currentTheme.colors.error
-                    };
-                    background: ${
-                      transaction.type === 'income'
-                        ? currentTheme.colors.success + '18'
-                        : currentTheme.colors.error + '18'
-                    };
-                    box-shadow: 0 2px 8px 0 ${currentTheme.colors.primary}11;
-                    width: 2.5rem; height: 2.5rem;
-                  `"
-                >
-                  {{ getCategoryIcon(transaction.category_id) }}
-                </span>
-                <div>
-                  <p
-                    class="font-medium"
-                    :style="`color: ${currentTheme.colors.text}`"
-                  >
-                    {{ getCategoryName(transaction.category_id) }}
-                  </p>
-                  <p
-                    class="text-xs"
-                    :style="`color: ${currentTheme.colors.textLight}`"
-                  >
-                    {{ formatDate(transaction.date) }}
-                  </p>
-                </div>
-              </div>
-              <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto">
-                <span
-                  class="font-semibold mr-3"
-                  :style="`color: ${
-                    transaction.type === 'income'
-                      ? currentTheme.colors.success
-                      : currentTheme.colors.error
-                  }`"
-                >
-                  {{ transaction.type === "income" ? "+" : "-"
-                  }}{{ formatCurrency(transaction.amount) }}
-                </span>
-                <div class="flex space-x-2">
-                  <button
-                    @click="editTransaction(transaction)"
-                    class="p-1.5 rounded-full transition-all hover:scale-110 hover:shadow-md"
-                    :style="`
-                      color: ${currentTheme.colors.textLight};
-                      background: ${currentTheme.colors.primary}10;
-                      box-shadow: 0 2px 8px 0 ${currentTheme.colors.primary}11;
-                    `"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15.232 5.232l3.536 3.536M9 11l6 6M3 21h6v-6H3v6z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    @click="duplicateTransaction(transaction)"
-                    class="p-1.5 rounded-full transition-all hover:scale-110 hover:shadow-md"
-                    :style="`
-                      color: ${currentTheme.colors.textLight};
-                      background: ${currentTheme.colors.accent}10;
-                      box-shadow: 0 2px 8px 0 ${currentTheme.colors.accent}11;
-                    `"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M8 16h8M8 12h8m-8-4h8"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    @click="handleTransactionDelete(transaction.id)"
-                    class="p-1.5 rounded-full transition-all hover:scale-110 hover:shadow-md"
-                    :style="`
-                      color: ${currentTheme.colors.error};
-                      background: ${currentTheme.colors.error}10;
-                      box-shadow: 0 2px 8px 0 ${currentTheme.colors.error}11;
-                    `"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
+              :transaction="transaction"
+              :get-category-icon="getCategoryIcon"
+              :get-category-name="getCategoryName"
+              :format-date="formatDate"
+              :format-currency="formatCurrency"
+              @edit="editTransaction"
+              @duplicate="duplicateTransaction"
+              @delete="handleTransactionDelete"
+            />
           </div>
         </div>
       </div>
@@ -870,6 +750,7 @@ import dayjs from 'dayjs'
 import { Preferences } from '@capacitor/preferences'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut as DoughnutChart } from 'vue-chartjs'
+import TransactionItem from '~/components/dashboard/TransactionItem.vue'
 
 // Composables
 import { useSupabaseAuth } from '~/composables/useSupabaseAuth'
@@ -1150,6 +1031,14 @@ const getCategoryIcon = (categoryId: string) => {
 
 const getCategoryName = (categoryId: string) => {
   return store.categories.find(c => c.id === categoryId)?.name || categoryId
+}
+
+// 取得交易的次要分類（最多兩個）
+const getSecondaryCategoryIds = (t: any): string[] => {
+  if (Array.isArray(t?.category_ids) && t.category_ids.length > 1) {
+    return t.category_ids.slice(1, 3).filter(Boolean)
+  }
+  return []
 }
 
 // 事件處理函數
