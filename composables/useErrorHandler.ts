@@ -3,6 +3,7 @@
  * 提供統一的錯誤處理、日誌記錄和用戶通知功能
  */
 import { ref, reactive } from 'vue'
+import { useToast } from '~/composables/useToast'
 
 export interface ErrorState {
   isError: boolean
@@ -29,6 +30,7 @@ export function useErrorHandler(options: UseErrorHandlerOptions = {}) {
   const error = ref<ErrorState | null>(null)
   const isLoading = ref(false)
   const errors = reactive<Map<string, ErrorState>>(new Map())
+  const { show: showToast } = useToast()
 
   // 清除錯誤
   const clearError = (key?: string) => {
@@ -68,8 +70,7 @@ export function useErrorHandler(options: UseErrorHandlerOptions = {}) {
 
     // 用戶通知（可以整合 toast 或其他通知系統）
     if (showNotifications) {
-      // TODO: 整合通知系統
-      console.warn('Error notification:', errorState.message)
+      showToast(errorState.message, { type: 'error', duration: 5000 })
     }
 
     return errorState

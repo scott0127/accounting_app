@@ -109,8 +109,8 @@
       </div>
     </div>
 
-    <!-- 交易標題與搜尋狀態 -->
-    <div class="flex justify-between items-center mb-4 relative">
+  <!-- 交易標題與搜尋狀態 -->
+  <div class="flex justify-between items-center mb-2 relative">
       <div class="flex items-center">
         <div class="h-5 w-1.5 rounded-full mr-2" 
              :style="`background: linear-gradient(to bottom, ${currentTheme.colors.primary}, ${currentTheme.colors.accent})`"></div>
@@ -127,6 +127,17 @@
           清除
         </button>
       </div>
+    </div>
+
+    <!-- 快速篩選 Chips 與 匯出 -->
+    <div class="flex items-center gap-2 mb-5">
+      <button class="text-xs px-3 py-1.5 rounded-full" :style="chipStyle(activeType==='all')" @click="setType('all')">全部</button>
+      <button class="text-xs px-3 py-1.5 rounded-full" :style="chipStyle(activeType==='expense')" @click="setType('expense')">支出</button>
+      <button class="text-xs px-3 py-1.5 rounded-full" :style="chipStyle(activeType==='income')" @click="setType('income')">收入</button>
+      <button class="text-xs px-3 py-1.5 rounded-full" :style="chipStyle(activeRange==='week')" @click="setRange('week')">本週</button>
+      <button class="text-xs px-3 py-1.5 rounded-full" :style="chipStyle(activeRange==='month')" @click="setRange('month')">本月</button>
+      <div class="flex-grow"></div>
+      <button class="text-xs px-3 py-1.5 rounded-full" :style="`background:${currentTheme.colors.primary}; color:#fff`" @click="exportCSV">匯出CSV</button>
     </div>
 
     <!-- 交易記錄列表 - 增強色彩視覺效果 -->
@@ -244,8 +255,10 @@ import TransactionModal from '~/components/dashboard/TransactionModal.vue'
 import { useSupabaseAuth } from '~/composables/useSupabaseAuth'
 import TransactionItem from '~/components/dashboard/TransactionItem.vue'
 import { useTheme } from '~/composables/useTheme'
+import { useToast } from '~/composables/useToast'
 const { currentTheme } = useTheme()
 const { user, isLoading } = useSupabaseAuth()
+const { show: showToast } = useToast()
 
 onMounted(async () => {
   // 等待 user 狀態 ready 再初始化
@@ -319,9 +332,11 @@ const groupedTransactions = computed(() => {
     return false
   }
 
-  const transactions = supabaseTransactions.value
+  let transactions = supabaseTransactions.value
     .filter(t => t.date.startsWith(currentMonth.value))
     .filter(matches)
+    .filter(t => activeType.value==='all' ? true : t.type === activeType.value)
+    .filter(t => filterByRange(t.date))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return transactions.reduce((groups, transaction) => {
@@ -488,13 +503,69 @@ const handleTransactionEdit = async (transaction: any) => {
 // 處理交易刪除
 const handleTransactionDelete = async (id: string) => {
   try {
-    if (confirm('確定要刪除此交易？')) {
-      await deleteTransaction(id)
-    }
+    if (!confirm('確定要刪除此交易？')) return
+    // 先在本地找到備份
+    const backup = supabaseTransactions.value.find(t => t.id === id)
+    await deleteTransaction(id)
+    // 提供撤銷
+    showToast('交易已刪除', {
+      type: 'warning',
+      actionLabel: '撤銷',
+      duration: 7000,
+      onAction: async () => {
+        if (!backup) return
+        // 以 addTransaction 邏輯重建（僅限當前會話）
+        const { addTransaction } = useSupabaseTransactions()
+        await addTransaction({
+          amount: backup.amount,
+          type: backup.type,
+          date: backup.date,
+          description: backup.description || '',
+          category_id: backup.category_id,
+          category_ids: backup.category_ids
+        } as any)
+      }
+    })
   } catch (error) {
     console.error('刪除交易失敗:', error)
     alert('刪除交易時發生錯誤，請稍後再試。')
   }
+}
+
+// 快速篩選狀態與工具
+const activeType = ref<'all'|'income'|'expense'>('all')
+const activeRange = ref<'month'|'week'>('month')
+const setType = (t: 'all'|'income'|'expense') => { activeType.value = t }
+const setRange = (r: 'month'|'week') => { activeRange.value = r }
+const filterByRange = (date: string) => {
+  if (activeRange.value === 'month') return true
+  // 本週：從週一到週日
+  const d = dayjs(date)
+  const start = dayjs().startOf('week')
+  const end = dayjs().endOf('week')
+  return d.isAfter(start.subtract(1,'day')) && d.isBefore(end.add(1,'day'))
+}
+const chipStyle = (active: boolean) => active
+  ? `background:${currentTheme.value.colors.primary}; color:#fff`
+  : `background:${currentTheme.value.colors.text}14; color:${currentTheme.value.colors.text}`
+
+// 匯出 CSV
+const exportCSV = () => {
+  const rows = [['日期','描述','金額','類型','主分類']]
+  const items = Object.values(groupedTransactions.value).flat()
+  for (const t of items) {
+    rows.push([t.date, t.description || '', String(t.amount), t.type, getCategoryName((t.category_ids?.[0] || t.category_id || '') as any)])
+  }
+  const csv = rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'\"')+'"').join(',')).join('\r\n')
+  const blob = new Blob([new TextEncoder().encode(csv)], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `transactions_${currentMonth.value}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 </script>
 

@@ -159,11 +159,14 @@
       </div>
     </transition>
   </div>
+  <!-- Global Toasts -->
+  <ToastHost />
 </template>
 
 <script setup lang="ts">
 import { useSupabaseAuth } from "~/composables/useSupabaseAuth";
 import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
+import ToastHost from '~/components/ui/ToastHost.vue'
 import { useRoute } from 'vue-router'
 const auth = useSupabaseAuth();
 
@@ -213,7 +216,17 @@ const onSheetTouchEnd = () => {
     dragY.value = 0
   }
 }
-const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') isSheetOpen.value = false }
+const onKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') isSheetOpen.value = false
+  if ((e.key === '/' || e.key === 'F') && !isSearching.value) { // quick search
+    e.preventDefault()
+    openSearch()
+  }
+  if ((e.key === 'a' || e.key === 'A') && !isSearching.value) { // quick add
+    e.preventDefault()
+    openQuickAdd()
+  }
+}
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 

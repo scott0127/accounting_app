@@ -95,12 +95,14 @@ html, body {
 
 /* 移除輸入框的預設樣式 */
 input, textarea {
+  appearance: none;
   -webkit-appearance: none;
   border-radius: 0;
 }
 
 /* 移除按鈕的預設樣式 */
 button {
+  appearance: none;
   -webkit-appearance: none;
   background: none;
   border: none;
@@ -174,5 +176,14 @@ button {
   margin-bottom: 0.5rem;
   color: var(--color-textLight);
   font-size: 0.875rem;
+}
+
+/* 偏好降低動畫時，關閉多數動畫與過渡 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }
 </style>

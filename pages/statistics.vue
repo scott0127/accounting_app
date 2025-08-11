@@ -140,136 +140,83 @@
       </div>
     </div>
 
-    <!-- 支出分類 -->
+    <!-- 類別總覽（分頁：支出/收入/氣泡） -->
   <div class="rounded-2xl shadow-lg border border-opacity-10 p-6 relative overflow-hidden backdrop-blur-sm fade-in-up" 
          :class="`bg-[${currentTheme.colors.surface}] border-[${currentTheme.colors.text}]`">
-      <h3 class="text-lg font-bold mb-4 relative z-10 drop-shadow-sm flex items-center gap-2" :class="`text-[${currentTheme.colors.text}]`">
-        <span class="inline-block w-1 h-6 rounded-full" :style="`background: ${currentTheme.colors.error}`"></span>
-        支出分類
-      </h3>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold relative z-10 drop-shadow-sm flex items-center gap-2" :class="`text-[${currentTheme.colors.text}]`">
+          <span class="inline-block w-1 h-6 rounded-full" :style="`background: ${currentTheme.colors.error}`"></span>
+          類別總覽
+        </h3>
+        <div class="inline-flex rounded-full p-0.5" :style="`background:${currentTheme.colors.text}12; border:1px solid ${currentTheme.colors.text}15`">
+          <button class="px-3 py-1 text-xs rounded-full" :style="categoryTab==='expense'?`background:${currentTheme.colors.error}; color:#fff`:'color:'+currentTheme.colors.text" @click="categoryTab='expense'">支出</button>
+          <button class="px-3 py-1 text-xs rounded-full" :style="categoryTab==='income'?`background:${currentTheme.colors.success}; color:#fff`:'color:'+currentTheme.colors.text" @click="categoryTab='income'">收入</button>
+          <button class="px-3 py-1 text-xs rounded-full" :style="categoryTab==='bubble'?`background:${currentTheme.colors.primary}; color:#fff`:'color:'+currentTheme.colors.text" @click="categoryTab='bubble'">氣泡</button>
+        </div>
+      </div>
       
-      <div class="h-64 relative z-10 bg-opacity-60 rounded-lg p-2 border border-opacity-5"
+      <div v-if="categoryTab!=='bubble'" class="h-64 relative z-10 bg-opacity-60 rounded-lg p-2 border border-opacity-5"
            :class="`bg-[${currentTheme.colors.background}] border-[${currentTheme.colors.text}]`">
-        <template v-if="doughnutChartData">
+        <template v-if="(categoryTab==='expense'?doughnutChartData:incomeChartData)">
           <DoughnutChart
-            :data="doughnutChartData"
+            ref="categoryChartRef"
+            :data="categoryTab==='expense'?doughnutChartData:incomeChartData"
             :options="getDoughnutChartOptions()"
-            :plugins="[getDoughnutCenterText('expense')]"
+            :plugins="[getDoughnutCenterText(categoryTab==='expense'?'expense':'income')]"
           />
+          <div class="absolute top-2 right-2 flex gap-2">
+            <button class="text-xs px-2 py-1 rounded" :style="`background:${currentTheme.colors.text}15; color:${currentTheme.colors.text}`" @click="downloadCurrentChart">下載PNG</button>
+            <button class="text-xs px-2 py-1 rounded" :style="`background:${currentTheme.colors.text}15; color:${currentTheme.colors.text}`" @click="toggleCategoryTable">{{ showCategoryTable? '隱藏表格':'顯示表格' }}</button>
+          </div>
         </template>
-        <div v-else class="h-full flex items-center justify-center" :class="`text-[${currentTheme.colors.textLight}]`">
-          載入中...
-        </div>
+        <div v-else class="h-full flex items-center justify-center" :class="`text-[${currentTheme.colors.textLight}]`">載入中...</div>
       </div>
-      
-      <!-- 分類列表 -->
-      <div class="mt-6 space-y-2 relative z-10">
-        <div
-          v-for="category in sortedExpenseCategories"
-          :key="category.id"
-          class="flex items-center justify-between p-4 rounded-xl border border-opacity-5 transition-all duration-200 hover-glow tap-scale"
-          :class="`hover:bg-[${currentTheme.colors.background}] border-[${currentTheme.colors.text}] bg-[${currentTheme.colors.background}] bg-opacity-40`"
-        >
-          <div class="flex items-center">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3"
-                 :style="`background: linear-gradient(135deg, ${currentTheme.colors.error}20, ${currentTheme.colors.background})`">
-              <span class="text-xl">{{ category.icon }}</span>
-            </div>
-            <span :class="`text-[${currentTheme.colors.text}]`">{{ category.name }}</span>
-          </div>
-          <div class="text-right">
-            <p class="font-semibold" :class="`text-[${currentTheme.colors.error}]`">
-              {{ formatAmount(category.amount) }}
-            </p>
-            <p class="text-xs" :class="`text-[${currentTheme.colors.textLight}]`">
-              {{ category.percentage.toFixed(1) }}%
-            </p>
+
+      <div v-else class="relative z-10">
+        <div v-if="bubbles.length" class="flex flex-wrap gap-3 justify-center items-center py-2">
+          <div
+            v-for="b in bubbles"
+            :key="b.id"
+            class="rounded-full flex flex-col items-center justify-center text-center shadow-sm border overflow-hidden"
+            :style="{
+              width: b.size + 'px',
+              height: b.size + 'px',
+              background: `radial-gradient( circle at 30% 30%, ${currentTheme.colors.accent}26, transparent 60%), linear-gradient(135deg, ${currentTheme.colors.error}33, ${currentTheme.colors.primary}33)`,
+              color: currentTheme.colors.text,
+              borderColor: currentTheme.colors.text + '25'
+            }"
+          >
+            <div class="text-base leading-none">{{ b.icon }}</div>
+            <div class="text-[10px] opacity-90 mt-1 px-1 truncate max-w-[90%]">{{ b.name }}</div>
+            <div class="text-[10px] font-semibold opacity-80 mt-0.5">{{ formatCompact(b.amount) }}</div>
           </div>
         </div>
+        <div v-else class="text-center py-10" :class="`text-[${currentTheme.colors.textLight}]`">本月尚無支出資料</div>
+      </div>
+
+      <!-- 分類資料表 -->
+      <div v-if="showCategoryTable && categoryTab!=='bubble'" class="mt-4 overflow-hidden rounded-lg border border-opacity-5" :class="`border-[${currentTheme.colors.text}]`">
+        <table class="w-full text-sm">
+          <thead :class="`bg-[${currentTheme.colors.background}]`">
+            <tr>
+              <th class="text-left p-2">類別</th>
+              <th class="text-right p-2">金額</th>
+              <th class="text-right p-2">占比</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="c in (categoryTab==='expense'?sortedExpenseCategories:sortedIncomeCategories)" :key="c.id" :class="`border-t border-[${currentTheme.colors.text}] border-opacity-5`">
+              <td class="p-2">{{ c.icon }} {{ c.name }}</td>
+              <td class="p-2 text-right">{{ formatAmount(c.amount) }}</td>
+              <td class="p-2 text-right">{{ c.percentage.toFixed(1) }}%</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <!-- 收入分類 -->
-  <div class="rounded-2xl shadow-lg border border-opacity-10 p-6 relative overflow-hidden backdrop-blur-sm fade-in-up" 
-         :class="`bg-[${currentTheme.colors.surface}] border-[${currentTheme.colors.text}]`">
-      <div class="absolute -right-10 -bottom-10 w-40 h-40 rounded-full opacity-10"
-           :style="`background: radial-gradient(circle, ${currentTheme.colors.success}, ${currentTheme.colors.primary})`">
-      </div>
-      
-      <h3 class="text-lg font-bold mb-4 relative z-10 drop-shadow-sm flex items-center gap-2" :class="`text-[${currentTheme.colors.text}]`">
-        <span class="inline-block w-1 h-6 rounded-full" :style="`background: ${currentTheme.colors.success}`"></span>
-        收入分類
-      </h3>
-      
-      <div class="h-64 relative z-10 bg-opacity-60 rounded-lg p-2 border border-opacity-5"
-           :class="`bg-[${currentTheme.colors.background}] border-[${currentTheme.colors.text}]`">
-        <template v-if="incomeChartData">
-          <DoughnutChart
-            :data="incomeChartData"
-            :options="getDoughnutChartOptions()"
-            :plugins="[getDoughnutCenterText('income')]"
-          />
-        </template>
-        <div v-else class="h-full flex items-center justify-center" :class="`text-[${currentTheme.colors.textLight}]`">
-          載入中...
-        </div>
-      </div>
-      
-      <!-- 分類列表 -->
-      <div class="mt-6 space-y-2 relative z-10">
-        <div
-          v-for="category in sortedIncomeCategories"
-          :key="category.id"
-          class="flex items-center justify-between p-4 rounded-xl border border-opacity-5 transition-all duration-200 hover-glow tap-scale"
-          :class="`hover:bg-[${currentTheme.colors.background}] border-[${currentTheme.colors.text}] bg-[${currentTheme.colors.background}] bg-opacity-40`"
-        >
-          <div class="flex items-center">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3"
-                 :style="`background: linear-gradient(135deg, ${currentTheme.colors.success}20, ${currentTheme.colors.background})`">
-              <span class="text-xl">{{ category.icon }}</span>
-            </div>
-            <span :class="`text-[${currentTheme.colors.text}]`">{{ category.name }}</span>
-          </div>
-          <div class="text-right">
-            <p class="font-semibold" :class="`text-[${currentTheme.colors.success}]`">
-              {{ formatAmount(category.amount) }}
-            </p>
-            <p class="text-xs" :class="`text-[${currentTheme.colors.textLight}]`">
-              {{ category.percentage.toFixed(1) }}%
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- 支出類別氣泡圖 -->
-    <div class="rounded-2xl shadow-lg border border-opacity-10 p-6 relative overflow-hidden backdrop-blur-sm" 
-         :class="`bg-[${currentTheme.colors.surface}] border-[${currentTheme.colors.text}]`">
-      <h3 class="text-lg font-bold mb-4 relative z-10 drop-shadow-sm flex items-center gap-2" :class="`text-[${currentTheme.colors.text}]`">
-        <span class="inline-block w-1 h-6 rounded-full" :style="`background: ${currentTheme.colors.primary}`"></span>
-        支出類別氣泡圖
-      </h3>
-
-      <div v-if="bubbles.length" class="flex flex-wrap gap-3 justify-center items-center py-2">
-        <div
-          v-for="b in bubbles"
-          :key="b.id"
-          class="rounded-full flex flex-col items-center justify-center text-center shadow-sm border overflow-hidden"
-          :style="{
-            width: b.size + 'px',
-            height: b.size + 'px',
-            background: `radial-gradient( circle at 30% 30%, ${currentTheme.colors.accent}26, transparent 60%), linear-gradient(135deg, ${currentTheme.colors.error}33, ${currentTheme.colors.primary}33)`,
-            color: currentTheme.colors.text,
-            borderColor: currentTheme.colors.text + '25'
-          }"
-        >
-          <div class="text-base leading-none">{{ b.icon }}</div>
-          <div class="text-[10px] opacity-90 mt-1 px-1 truncate max-w-[90%]">{{ b.name }}</div>
-          <div class="text-[10px] font-semibold opacity-80 mt-0.5">{{ formatCompact(b.amount) }}</div>
-        </div>
-      </div>
-      <div v-else class="text-center py-10" :class="`text-[${currentTheme.colors.textLight}]`">本月尚無支出資料</div>
-    </div>
+    
     </main>
   </div>
 </template>
@@ -341,6 +288,10 @@ const monthlyStats = computed(() => {
 
 // 收支趨勢圖：支援 最近6個月 / 本月每日
 const lineView = ref<'months' | 'days'>('months')
+// 類別區塊分頁：支出/收入/氣泡
+const categoryTab = ref<'expense' | 'income' | 'bubble'>('expense')
+const showCategoryTable = ref(false)
+const categoryChartRef = ref<any>(null)
 const lineChartData = computed(() => {
   if (!monthlyStats.value) {
     return {
@@ -992,6 +943,21 @@ const getDoughnutCenterText = (kind: 'expense' | 'income') => ({
     ctx.restore()
   }
 })
+
+// UI actions
+const toggleCategoryTable = () => {
+  showCategoryTable.value = !showCategoryTable.value
+}
+
+const downloadCurrentChart = () => {
+  const inst = (categoryChartRef.value as any)?.chart
+  if (!inst) return
+  const url = inst.toBase64Image('image/png', 1)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = categoryTab.value === 'expense' ? 'expense-categories.png' : 'income-categories.png'
+  a.click()
+}
 </script>
 
 <style scoped>
