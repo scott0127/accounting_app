@@ -1,10 +1,6 @@
 <template>
-  <div class="min-h-screen p-4 transition-all duration-300" :class="`bg-[${currentTheme.colors.background}] text-[${currentTheme.colors.text}]`">
-    <!-- 頁面標題 -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold" :class="`text-[${currentTheme.colors.text}]`">交易記錄</h1>
-      <p class="text-sm mt-1" :class="`text-[${currentTheme.colors.textLight}]`">追蹤您的收支情況</p>
-    </div>
+  <div class="min-h-screen transition-all duration-300" :class="`bg-[${currentTheme.colors.background}] text-[${currentTheme.colors.text}]`">
+    <main class="max-w-md mx-auto w-full px-3 pb-28 pt-4">
     
     <!-- 月份選擇器 - 重新設計為更現代的樣式 -->
     <div class="flex items-center justify-between mb-6 p-4 rounded-2xl shadow-sm backdrop-blur-sm" 
@@ -113,25 +109,33 @@
       </div>
     </div>
 
-    <!-- 交易標題 - 添加裝飾性元素 -->
+    <!-- 交易標題與搜尋狀態 -->
     <div class="flex justify-between items-center mb-4 relative">
       <div class="flex items-center">
         <div class="h-5 w-1.5 rounded-full mr-2" 
              :style="`background: linear-gradient(to bottom, ${currentTheme.colors.primary}, ${currentTheme.colors.accent})`"></div>
         <h3 class="font-semibold" :class="`text-[${currentTheme.colors.text}]`">最近交易</h3>
       </div>
-      <button class="text-sm px-3 py-1 rounded-full" 
-              :style="`background: linear-gradient(to right, ${currentTheme.colors.primary}, ${currentTheme.colors.accent}); color: white;`">
-        查看全部
-      </button>
+      <div v-if="searchQuery" class="flex items-center gap-2">
+        <span class="text-xs px-2 py-1 rounded-full"
+              :style="`background: ${currentTheme.colors.text}22; color: ${currentTheme.colors.text}`">
+          搜尋：{{ searchQuery }}
+        </span>
+        <button @click="clearSearch"
+                class="text-xs px-2 py-1 rounded-full"
+                :style="`background: linear-gradient(to right, ${currentTheme.colors.primary}, ${currentTheme.colors.accent}); color: white;`">
+          清除
+        </button>
+      </div>
     </div>
 
     <!-- 交易記錄列表 - 增強色彩視覺效果 -->
     <div class="space-y-5">
       <template v-for="(group, date) in groupedTransactions" :key="date">
         <div class="transaction-group">
-          <!-- 日期標題 - 更有設計感 -->
-          <div class="flex items-center mb-2 px-2">
+    <!-- 日期標題 - 黏性玻璃效果 -->
+    <div class="flex items-center mb-2 px-2 sticky top-16 z-10"
+      :style="`backdrop-filter: blur(6px); background: ${currentTheme.colors.surface}CC`">
             <span class="font-medium" :class="`text-[${currentTheme.colors.text}]`">{{ formatGroupDate(date) }}</span>
             <span class="text-xs ml-2 px-2 py-0.5 rounded-full" 
                  :style="`background: linear-gradient(to right, ${currentTheme.colors.accent}22, ${currentTheme.colors.primary}22); color: ${currentTheme.colors.text};`">
@@ -171,18 +175,30 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-30" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
         </svg>
-        <p class="text-center">本月尚無交易記錄</p>
-        <button 
-          @click="router.push('/transactions/add')"
-          class="mt-4 px-4 py-2 rounded-full text-sm transition-all"
-          :class="`bg-[${currentTheme.colors.primary}] text-white hover:bg-opacity-90`"
-        >
-          新增第一筆交易
-        </button>
+        <p class="text-center">
+          <template v-if="searchQuery">沒有符合「{{ searchQuery }}」的交易</template>
+          <template v-else>本月尚無交易記錄</template>
+        </p>
+        <div class="mt-4 flex gap-2">
+          <button 
+            v-if="searchQuery"
+            @click="clearSearch"
+            class="px-4 py-2 rounded-full text-sm transition-all"
+            :style="`background: ${currentTheme.colors.surface}; color: ${currentTheme.colors.text}; border: 1px solid ${currentTheme.colors.primary}33;`"
+          >
+            清除搜尋
+          </button>
+          <button 
+            @click="router.push('/transactions/add')"
+            class="px-4 py-2 rounded-full text-sm transition-all"
+            :class="`bg-[${currentTheme.colors.primary}] text-white hover:bg-opacity-90`"
+          >
+            新增第一筆交易
+          </button>
+        </div>
       </div>
     </div>
 
-    
 
     <!-- 編輯交易對話框 -->
     <TransactionModal
@@ -197,7 +213,7 @@
     />
     
     <!-- 載入中指示器 - 美化版本 -->
-    <div v-if="loading" class="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm transition-all" 
+  <div v-if="loading" class="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm transition-all" 
          :class="`bg-[${currentTheme.colors.background}] bg-opacity-50`">
       <div class="rounded-2xl p-8 shadow-xl transform transition-all scale-100" 
            :class="`bg-[${currentTheme.colors.surface}]`">
@@ -213,12 +229,13 @@
         </div>
       </div>
     </div>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useTransactionStore } from '~/stores/transaction'
 import { useSupabaseTransactions } from '~/composables/useSupabaseTransactions'
 import dayjs from 'dayjs'
@@ -226,26 +243,24 @@ import 'dayjs/locale/zh-tw'
 import TransactionModal from '~/components/dashboard/TransactionModal.vue'
 import { useSupabaseAuth } from '~/composables/useSupabaseAuth'
 import TransactionItem from '~/components/dashboard/TransactionItem.vue'
+import { useTheme } from '~/composables/useTheme'
 const { currentTheme } = useTheme()
 const { user, isLoading } = useSupabaseAuth()
 
 onMounted(async () => {
-  // 等待 user 狀態 ready
-  {
-    const start = Date.now()
-    while (isLoading.value && Date.now() - start < 2000) {
-      await new Promise(resolve => setTimeout(resolve, 50))
-    }
+  // 等待 user 狀態 ready 再初始化
+  const start = Date.now()
+  while (isLoading.value && Date.now() - start < 2000) {
+    await new Promise(resolve => setTimeout(resolve, 50))
   }
-  if (user.value) {
-    await initializeSupabase()
-  }
+  await initializeSupabase()
 })
 
 
 dayjs.locale('zh-tw')
 
 const router = useRouter()
+const route = useRoute()
 const store = useTransactionStore()
 
 // 使用 Supabase 交易數據
@@ -255,13 +270,10 @@ const {
   loading,
   initialize: initializeSupabase,
   updateTransaction,
-  deleteTransaction
+  deleteTransaction,
+  categories
 } = useSupabaseTransactions()
 
-// 初始化 Supabase 數據
-onMounted(async () => {
-  await initializeSupabase()
-})
 
 // 當前月份
 const currentMonth = ref(dayjs().format('YYYY-MM'))
@@ -281,10 +293,35 @@ const balanceColor = computed(() => {
   return monthlyStats.value.balance >= 0 ? 'text-green-500' : 'text-red-500'
 })
 
-// 按日期分組的交易記錄
+// 搜尋關鍵字（來自查詢參數）
+const searchQuery = computed(() => (String(route.query.search || '')).trim().toLowerCase())
+const clearSearch = () => {
+  const q = { ...route.query }
+  delete (q as any).search
+  router.replace({ query: q })
+}
+
+// 按日期分組的交易記錄（支援搜尋）
 const groupedTransactions = computed(() => {
+  const q = searchQuery.value
+  const matches = (t: any) => {
+    if (!q) return true
+    const text = (t.description || '').toLowerCase()
+    if (text.includes(q)) return true
+    // 類別名稱匹配（含次要分類）
+    const ids: string[] = Array.isArray(t.category_ids) ? t.category_ids : (t.category_id ? [t.category_id] : [])
+    const names = ids.map(id => getCategoryName(id).toLowerCase())
+    if (names.some(n => n.includes(q))) return true
+    // 金額字串匹配
+    if (String(t.amount).includes(q)) return true
+    // 日期簡易匹配
+    if (t.date.toLowerCase().includes(q)) return true
+    return false
+  }
+
   const transactions = supabaseTransactions.value
     .filter(t => t.date.startsWith(currentMonth.value))
+    .filter(matches)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return transactions.reduce((groups, transaction) => {
@@ -319,16 +356,10 @@ const getCategoryIcon = (categoryId: string) => {
 }
 
 const getCategoryName = (categoryId: string) => {
-  // 先嘗試在 store.categories 中查找
   const storeCategory = store.categories.find(c => c.id === categoryId)
   if (storeCategory) return storeCategory.name
-  
-  // 如果在 store 中找不到，嘗試從 Supabase 獲取的類別中查找
-  const { categories } = useSupabaseTransactions()
   const supabaseCategory = categories.value.find(c => c.id === categoryId)
   if (supabaseCategory) return supabaseCategory.name
-  
-  // 如果都找不到，返回 categoryId 作為後備選項
   return categoryId
 }
 

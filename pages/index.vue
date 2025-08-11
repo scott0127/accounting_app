@@ -2,61 +2,7 @@
   <div
     :class="`min-h-screen transition-all duration-300 bg-[${currentTheme.colors.background}] text-[${currentTheme.colors.text}]`"
   >
-    <!-- 動態主題頂部欄 -->
-    <header
-      :class="`flex items-center justify-between px-4 h-16 sticky top-0 z-30 shadow-sm bg-[${currentTheme.colors.surface}]/80 backdrop-blur-md`"
-    >
-      <h1
-        class="text-xl font-bold tracking-tight"
-        :style="{ color: currentTheme.colors.accent }"
-      >
-        懶人記帳-AI幫你分類
-      </h1>
-      <button
-        v-if="user"
-        @click="handleLogout"
-        class="btn-logout flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-all"
-        :style="`background: linear-gradient(90deg, ${currentTheme.colors.error}, ${currentTheme.colors.accent}); color: #fff;`"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-4 w-4 mr-1"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M17 16l4-4m0 0l-4-4m4 4H7"
-          />
-        </svg>
-        登出
-      </button>
-      <button
-        v-else
-        @click="router.push('/auth')"
-        class="btn-login flex items-center px-4 py-1.5 rounded-full text-xs font-medium transition-all"
-        :style="`background: linear-gradient(90deg, ${currentTheme.colors.primary}, ${currentTheme.colors.accent}); color: #fff;`"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-4 w-4 mr-1"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M5 12h14M12 5l7 7-7 7"
-          />
-        </svg>
-        登入/註冊
-      </button>
-    </header>
+  <!-- 頂部欄由全域 layout 提供，首頁不再重複顯示標題與登出按鈕 -->
 
     <main class="max-w-md mx-auto w-full px-2 pb-24 pt-4">
       <!-- 未登入歡迎區塊 -->
@@ -764,7 +710,7 @@ ChartJS.register(ArcElement, Tooltip, Legend)
 
 // Router 和基礎狀態
 const router = useRouter()
-const { user, signOut } = useSupabaseAuth()
+const { user } = useSupabaseAuth()
 const { currentTheme } = useTheme()
 const { formatCurrency, formatDate } = useFormatters()
 
@@ -1042,14 +988,7 @@ const getSecondaryCategoryIds = (t: any): string[] => {
 }
 
 // 事件處理函數
-const handleLogout = async () => {
-  try {
-    await signOut()
-    router.push('/auth')
-  } catch (error) {
-    console.error('登出失敗:', error)
-  }
-}
+// 登出由全域 layout 的 App Bar 控制；首頁保留未登入導向 /auth 按鈕
 
 const handleMonthChange = (direction: number) => {
   if (direction === 0) {

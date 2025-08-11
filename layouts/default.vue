@@ -1,8 +1,48 @@
 <!-- layouts/default.vue -->
 <template>
   <div class="min-h-screen" :class="`bg-[${currentTheme.colors.background}]`">
+    <!-- 玻璃感頂部 App Bar（僅首頁/列表頁顯示） -->
+    <header v-if="showHeader" class="app-header fixed top-0 left-0 right-0 z-40">
+      <div class="app-header__container mx-auto max-w-md">
+        <div class="flex items-center gap-2 h-14 px-3">
+          <!-- 品牌 / 標題區 -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <div class="brand-pill">
+                <span class="brand-dot" />
+                <span class="brand-text truncate">懶人記帳</span>
+              </div>
+              <span class="header-divider" />
+              <div class="text-sm font-semibold opacity-80 truncate">{{ headerTitle }}</div>
+            </div>
+          </div>
+
+          <!-- 搜尋/輸入區 -->
+          <div v-if="isSearching" class="search-wrap">
+            <form @submit.prevent="submitSearch" class="search-form">
+              <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+                <path d="M21 21l-3.2-3.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <input ref="searchInputRef" v-model.trim="searchQuery" class="search-input" placeholder="搜尋交易... (Enter)" />
+              <button type="button" class="clear-btn" v-if="searchQuery" @click="searchQuery=''"></button>
+            </form>
+          </div>
+          <button v-else class="icon-btn" aria-label="搜尋" @click="openSearch">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+              <path d="M21 21l-3.2-3.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+
+          <!-- 登出按鈕 -->
+          <button v-if="auth.user?.value" class="logout-pill" @click="handleSignOut">登出</button>
+        </div>
+      </div>
+    </header>
+
     <!-- 主要內容區域 -->
-    <main class="pb-16">
+    <main :class="['pb-20','pt-0', showHeader ? 'pt-16' : 'pt-0']">
       <slot />
     </main>
 
@@ -70,10 +110,10 @@
       </div>
     </nav>
 
-    <!-- 新增記帳按鈕 - 現代 APP 風格 FAB (優化) -->
+    <!-- 新增記帳按鈕 - 現代 APP 風格 FAB (改為開啟 Quick Add 面板) -->
     <button
-      class="fab-btn fixed right-4 bottom-20 w-14 h-14 rounded-full flex items-center justify-center z-50 group focus:outline-none shadow-lg"
-      @click="navigateToAdd"
+      class="fab-btn fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] w-14 h-14 rounded-full flex items-center justify-center z-50 group focus:outline-none shadow-lg"
+      @click="openQuickAdd"
       aria-label="新增記帳"
     >
       <span class="fab-btn__glass absolute inset-0 rounded-full pointer-events-none"></span>
@@ -82,28 +122,170 @@
         <path d="M12 7v10M7 12h10" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
       </svg>
     </button>
+
+    <!-- Bottom Sheet：Quick Add -->
+    <transition name="fade">
+      <div v-if="isSheetOpen" class="sheet-overlay" @click="closeSheet" />
+    </transition>
+    <transition name="sheet">
+      <div
+        v-if="isSheetOpen"
+        class="sheet-panel"
+        :class="{ 'no-transition': isDraggingSheet }"
+        role="dialog" aria-modal="true"
+        :style="sheetTransformStyle"
+        @touchstart.passive="onSheetTouchStart"
+        @touchmove.prevent="onSheetTouchMove"
+        @touchend="onSheetTouchEnd"
+      >
+        <div class="sheet-handle" />
+        <div class="px-5 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div class="text-sm text-gray-500 mb-3">快速新增</div>
+          <div class="grid grid-cols-3 gap-3">
+            <button class="quick-card qc-ai" @click="goQuick('ai')">
+              <span class="qc-icon">🤖</span>
+              <span class="qc-label">AI 記帳</span>
+            </button>
+            <button class="quick-card qc-expense" @click="goQuick('expense')">
+              <span class="qc-icon">➖</span>
+              <span class="qc-label">支出</span>
+            </button>
+            <button class="quick-card qc-income" @click="goQuick('income')">
+              <span class="qc-icon">➕</span>
+              <span class="qc-label">收入</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useSupabaseAuth } from "~/composables/useSupabaseAuth";
-useSupabaseAuth();
+import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
+const auth = useSupabaseAuth();
 
 const { currentTheme } = useTheme();
+const route = useRoute()
+
+// Header 顯示與標題
+const showHeader = computed(() => {
+  const p = route.path
+  return p === '/' || p.startsWith('/transactions') || p.startsWith('/statistics') || p.startsWith('/settings')
+})
+const headerTitle = computed(() => {
+  const p = route.path
+  if (p.startsWith('/transactions')) return '記錄'
+  if (p.startsWith('/statistics')) return '統計'
+  if (p.startsWith('/settings')) return '設定'
+  return '總覽'
+})
 
 const toggleMenu = () => {
   // 實現選單切換邏輯
 };
 
-const navigateToAdd = () => {
-  navigateTo("/transactions/add");
-};
+// Quick Add Bottom Sheet 控制
+const isSheetOpen = ref(false)
+const isDraggingSheet = ref(false)
+const startY = ref(0)
+const dragY = ref(0)
+const sheetTransformStyle = computed(() => ({ transform: `translateY(${Math.max(0, dragY.value)}px)` }))
+const onSheetTouchStart = (e: TouchEvent) => {
+  isDraggingSheet.value = true
+  startY.value = e.touches[0].clientY
+  dragY.value = 0
+}
+const onSheetTouchMove = (e: TouchEvent) => {
+  const dy = e.touches[0].clientY - startY.value
+  // 僅向下拖曳，加入阻尼
+  dragY.value = dy > 0 ? dy * 0.9 : 0
+}
+const onSheetTouchEnd = () => {
+  const shouldClose = dragY.value > 120
+  isDraggingSheet.value = false
+  if (shouldClose) {
+    closeSheet()
+  } else {
+    // 回彈
+    dragY.value = 0
+  }
+}
+const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') isSheetOpen.value = false }
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+
+const openQuickAdd = () => { isSheetOpen.value = true }
+const closeSheet = () => { isSheetOpen.value = false }
+const goQuick = (mode?: 'ai'|'expense'|'income') => {
+  const q = mode ? `?mode=${mode}` : ''
+  isSheetOpen.value = false
+  navigateTo(`/transactions/add${q}`)
+}
+
+// Header Search
+const isSearching = ref(false)
+const searchQuery = ref('')
+const searchInputRef = ref<HTMLInputElement | null>(null)
+const openSearch = async () => {
+  isSearching.value = true
+  await nextTick()
+  searchInputRef.value?.focus()
+}
+const submitSearch = () => {
+  const q = searchQuery.value.trim()
+  isSearching.value = false
+  if (!q) return
+  navigateTo(`/transactions?search=${encodeURIComponent(q)}`)
+}
+const handleSignOut = async () => {
+  try { await auth.signOut() } finally { navigateTo('/auth') }
+}
 </script>
 
 <style scoped>
 .router-link-active {
   color: var(--color-primary);
 }
+
+/* 玻璃感頂部 App Bar */
+.app-header {
+  background: transparent;
+  pointer-events: none;
+}
+.app-header__container {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  box-shadow: 0 1px 10px #00000014;
+  border-bottom: 1px solid var(--color-surface);
+  border-bottom-left-radius: 1rem;
+  border-bottom-right-radius: 1rem;
+  pointer-events: auto;
+}
+.icon-btn { color: var(--color-text); padding: 6px; border-radius: 10px; transition: background 0.18s }
+.icon-btn:active { background: var(--color-primary)11 }
+
+/* 品牌區 */
+.brand-pill { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:14px; background: linear-gradient(120deg, var(--color-primary)11, var(--color-accent)11) }
+.brand-dot { width:8px; height:8px; border-radius:999px; background: var(--color-primary); box-shadow: 0 0 10px var(--color-primary)55 }
+.brand-text { font-weight:700; font-size:.95rem }
+.header-divider { width:1px; height:18px; background:#0002 }
+
+/* 搜尋欄 */
+.search-wrap { flex: 1; max-width: 56%; }
+.search-form { display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:12px; background: #00000006; border:1px solid #0001 }
+.search-icon { opacity:.7 }
+.search-input { outline:none; border:0; background:transparent; width:140px; font-size:.9rem }
+.clear-btn { width:16px; height:16px; border-radius:999px; background:#0003; position:relative }
+.clear-btn::before, .clear-btn::after { content:''; position:absolute; left:50%; top:50%; width:9px; height:2px; background:white; transform-origin:center; border-radius:1px }
+.clear-btn::before { transform: translate(-50%,-50%) rotate(45deg) }
+.clear-btn::after { transform: translate(-50%,-50%) rotate(-45deg) }
+
+/* 登出按鈕 */
+.logout-pill { padding:6px 10px; border-radius:999px; font-weight:600; font-size:.85rem; color:#fff; background: linear-gradient(120deg, var(--color-secondary), var(--color-primary)); box-shadow: 0 2px 10px var(--color-primary)22 }
 
 /* 針對移動設備的優化 */
 @media (max-width: 640px) {
@@ -125,8 +307,7 @@ body {
 main {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  height: calc(100vh - 3.5rem - 4rem);
-  /* 扣除頂部和底部導航的高度 */
+  min-height: 100vh;
 }
 
 /* FAB 現代 APP 風格樣式 */
@@ -173,7 +354,7 @@ html[data-theme='dark'] .fab-btn__icon {
   border-top-left-radius: 2rem;
   border-top-right-radius: 2rem;
   border: 1.5px solid var(--color-surface);
-  margin-bottom: 0;
+  margin-bottom: env(safe-area-inset-bottom);
   transition: background 0.2s;
 }
 @media (max-width: 640px) {
@@ -226,4 +407,42 @@ html[data-theme='dark'] .fab-btn__icon {
   margin-top: 0.05rem;
   transition: color 0.18s;
 }
+
+/* Bottom Sheet（Quick Add）*/
+.sheet-overlay { position: fixed; inset: 0; background: #0006; z-index: 60 }
+.sheet-panel {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 61;
+  margin: 0 auto; max-width: 28rem;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  border-top-left-radius: 1.25rem; border-top-right-radius: 1.25rem;
+  box-shadow: 0 -10px 30px #0000001a;
+}
+.sheet-handle { width: 40px; height: 4px; background: #0003; border-radius: 999px; margin: 8px auto 10px }
+.fade-enter-active, .fade-leave-active { transition: opacity .18s }
+.fade-enter-from, .fade-leave-to { opacity: 0 }
+.sheet-enter-active { transition: transform .26s cubic-bezier(.22,.61,.36,1.2) }
+.sheet-leave-active { transition: transform .22s ease }
+.sheet-enter-from, .sheet-leave-to { transform: translateY(24px) }
+.no-transition { transition: none !important }
+
+.quick-card { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:14px 10px; border-radius:16px; font-weight:600; transition: transform .12s, box-shadow .12s }
+.quick-card:active { transform: scale(.97) }
+.qc-icon { font-size: 20px; }
+.qc-label { font-size: .85rem; }
+.qc-ai { background: linear-gradient(135deg, #eef2ff, #f5f3ff); color:#4f46e5 }
+.qc-expense { background: linear-gradient(135deg, #fee2e2, #ffe4e6); color:#dc2626 }
+.qc-income { background: linear-gradient(135deg, #dcfce7, #d1fae5); color:#16a34a }
+
+/* 深色模式調整 */
+html[data-theme='dark'] .app-header__container { background: rgba(20,20,24,0.6); border-bottom-color: #ffffff10; box-shadow: 0 1px 10px #00000066 }
+html[data-theme='dark'] .icon-btn { color: #e5e7eb }
+html[data-theme='dark'] .brand-pill { background: linear-gradient(120deg, #0ea5e911, #a855f711) }
+html[data-theme='dark'] .header-divider { background: #ffffff1a }
+html[data-theme='dark'] .search-form { background: #ffffff0a; border-color: #ffffff12 }
+html[data-theme='dark'] .sheet-overlay { background: #000a }
+html[data-theme='dark'] .sheet-panel { background: rgba(20,20,24,0.82); box-shadow: 0 -10px 30px #000000aa }
+html[data-theme='dark'] .sheet-handle { background: #ffffff26 }
+html[data-theme='dark'] .bottom-nav__container { background: rgba(20,20,24,0.72); border-color: #ffffff10; box-shadow: 0 -2px 24px 0 #00000099 }
 </style>

@@ -795,7 +795,7 @@ input[type="date"] {
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useTransactionStore } from "~/stores/transaction";
 import { useSmartFinancialAssistant } from "~/composables/useSmartFinancialAssistant";
 import { useExpenseClassifier } from "~/composables/useExpenseClassifier";
@@ -822,6 +822,7 @@ const {
 } = useSmartFinancialAssistant();
 
 const router = useRouter();
+const route = useRoute();
 const store = useTransactionStore();
 const { classifyExpense, rememberCorrection } = useExpenseClassifier();
 const { 
@@ -830,8 +831,13 @@ const {
   classifyIntelligent 
 } = useLLMClassifier();
 
-// 記帳模式
-const mode = ref<"ai" | "ai-suggestion" | "expense" | "income">("ai");
+// 記帳模式（可由 query 預設）
+const initialMode = ((): 'ai'|'ai-suggestion'|'expense'|'income' => {
+  const m = (route.query.mode as string) || 'ai'
+  if (m === 'expense' || m === 'income' || m === 'ai' || m === 'ai-suggestion') return m
+  return 'ai'
+})()
+const mode = ref<"ai" | "ai-suggestion" | "expense" | "income">(initialMode);
 const aiDescription = ref("");
 const classificationResult = ref<any>(null);
 const llmResult = ref<{
