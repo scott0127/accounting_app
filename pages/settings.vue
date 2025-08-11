@@ -1,18 +1,26 @@
 <template>
-  <div class="min-h-screen p-4 transition-all duration-300" :class="`bg-[${currentTheme.colors.background}] text-[${currentTheme.colors.text}]`">
-    <!-- 頁面標題 -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold" :class="`text-[${currentTheme.colors.text}]`">設定</h1>
-      <p class="text-sm mt-1" :class="`text-[${currentTheme.colors.textLight}]`">自訂您的使用體驗</p>
-    </div>
+  <div
+    class="min-h-screen transition-all duration-300"
+    :style="{
+      backgroundColor: currentTheme.colors.background,
+      color: currentTheme.colors.text,
+      // CSS 變數供聚焦/玻璃樣式使用
+      ['--c-bg' as any]: currentTheme.colors.background,
+      ['--c-text' as any]: currentTheme.colors.text,
+      ['--c-text-light' as any]: currentTheme.colors.textLight,
+      ['--c-surface' as any]: currentTheme.colors.surface,
+      ['--c-primary' as any]: currentTheme.colors.primary,
+      ['--c-accent' as any]: currentTheme.colors.accent,
+      ['--c-primary-20' as any]: currentTheme.colors.primary + '20',
+      ['--c-text-10' as any]: currentTheme.colors.text + '10',
+      ['--c-text-15' as any]: currentTheme.colors.text + '15',
+      ['--c-text-20' as any]: currentTheme.colors.text + '20'
+    }"
+  >
+    <main class="max-w-md mx-auto w-full px-3 pb-28 pt-4">
 
-    <!-- 主題設定 -->
-    <div class="mb-8 rounded-2xl p-6 relative overflow-hidden" 
-         :style="`
-           background: ${currentTheme.colors.surface};
-           box-shadow: 0 4px 20px -2px ${currentTheme.colors.text}10;
-           border: 1px solid ${currentTheme.colors.text}20;
-         `">
+  <!-- 主題設定 -->
+  <div class="mb-8 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm card-glass">
       <!-- 背景裝飾 -->
       <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full opacity-10"
            :style="`background: radial-gradient(circle, ${currentTheme.colors.primary}, ${currentTheme.colors.accent})`">
@@ -29,8 +37,8 @@
         <button
           v-for="theme in themes"
           :key="theme.id"
-          class="group relative p-4 rounded-xl border-2 transition-all duration-300 hover:scale-105"
-          :class="theme.id === currentTheme.id ? 'shadow-lg transform scale-105' : ''"
+          class="group relative p-4 rounded-xl border-2 transition-all duration-300 hover:scale-[1.02]"
+          :class="theme.id === currentTheme.id ? 'shadow-lg scale-[1.02]' : ''"
           :style="{
             background: `linear-gradient(135deg, ${theme.colors.surface} 20%, ${theme.colors.primary}20)`,
             borderColor: theme.id === currentTheme.id ? theme.colors.primary : 'transparent'
@@ -72,13 +80,8 @@
       </div>
     </div>
 
-    <!-- 類別管理 -->
-    <div class="mb-8 rounded-2xl shadow-md p-6 relative overflow-hidden" 
-         :class="`bg-[${currentTheme.colors.surface}]`"
-         :style="`
-           box-shadow: 0 4px 20px -2px ${currentTheme.colors.primary}15;
-           border: 1px solid ${currentTheme.colors.text}15;
-         `">
+  <!-- 類別管理 -->
+  <div class="mb-8 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm card-glass">
       <div class="flex items-center justify-between mb-6">
         <h3 class="text-lg font-bold flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="`text-[${currentTheme.colors.primary}]`" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -87,7 +90,7 @@
           類別管理
         </h3>
         <button
-          class="px-4 py-2 rounded-full text-sm font-medium transition-all hover:opacity-80"
+      class="px-4 py-2 rounded-full text-sm font-medium transition-all hover:opacity-90"
           :style="{
             background: `linear-gradient(135deg, ${currentTheme.colors.primary}, ${currentTheme.colors.accent})`,
             color: 'white'
@@ -184,12 +187,7 @@
     </div>
 
     <!-- 數據管理 -->
-    <div class="mb-8 rounded-2xl shadow-md p-6 relative overflow-hidden" 
-         :class="`bg-[${currentTheme.colors.surface}]`"
-         :style="`
-           box-shadow: 0 4px 20px -2px ${currentTheme.colors.primary}15;
-           border: 1px solid ${currentTheme.colors.text}15;
-         `">
+    <div class="mb-8 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm card-glass">
       <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="`text-[${currentTheme.colors.primary}]`" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -197,7 +195,7 @@
         數據管理
       </h3>
       <button
-        class="w-full py-3 rounded-xl transition-all duration-300 font-medium relative overflow-hidden"
+        class="w-full py-3 rounded-xl transition-all duration-300 font-medium relative overflow-hidden hover:opacity-90"
         :style="`
           border: 1.5px solid ${currentTheme.colors.error};
           color: ${currentTheme.colors.error};
@@ -210,12 +208,7 @@
     </div>
 
     <!-- 關於部分 -->
-    <div class="rounded-2xl shadow-md p-6 relative overflow-hidden" 
-         :class="`bg-[${currentTheme.colors.surface}]`"
-         :style="`
-           box-shadow: 0 4px 20px -2px ${currentTheme.colors.primary}15;
-           border: 1px solid ${currentTheme.colors.text}15;
-         `">
+    <div class="rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm card-glass">
       <h3 class="text-lg font-bold mb-4">關於</h3>
       <p class="text-sm" :class="`text-[${currentTheme.colors.textLight}]`">版本：1.0.0</p>
     </div>
@@ -225,12 +218,7 @@
          class="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50"
          :style="`background: ${currentTheme.colors.text}40;`"
          @click.self="showAddCategory = false">
-      <div class="rounded-2xl p-6 relative overflow-hidden w-full max-w-sm" 
-           :style="`
-             background: ${currentTheme.colors.surface};
-             box-shadow: 0 8px 32px -4px ${currentTheme.colors.text}30;
-             border: 1px solid ${currentTheme.colors.text}20;
-           `">
+      <div class="rounded-2xl p-6 relative overflow-hidden w-full max-w-sm card-glass" >
         <h3 class="text-lg font-bold mb-4">新增類別</h3>
         <form @submit.prevent="addNewCategory" class="space-y-4">
           <div>
@@ -238,15 +226,11 @@
             <input
               v-model="newCategory.name"
               type="text"
-              class="w-full p-2 rounded-lg transition-all"
+              class="themed-input w-full p-3 rounded-lg transition-all border"
               :style="`
-                background: ${currentTheme.colors.background};
-                border: 1.5px solid ${currentTheme.colors.text}20;
-                color: ${currentTheme.colors.text};
-                &:focus {
-                  border-color: ${currentTheme.colors.primary};
-                  box-shadow: 0 0 0 2px ${currentTheme.colors.primary}20;
-                }
+                background: var(--c-bg);
+                color: var(--c-text);
+                border-color: var(--c-text-20);
               `"
               required
             />
@@ -256,15 +240,11 @@
             <input
               v-model="newCategory.icon"
               type="text"
-              class="w-full p-2 rounded-lg transition-all"
+              class="themed-input w-full p-3 rounded-lg transition-all border"
               :style="`
-                background: ${currentTheme.colors.background};
-                border: 1.5px solid ${currentTheme.colors.text}20;
-                color: ${currentTheme.colors.text};
-                &:focus {
-                  border-color: ${currentTheme.colors.primary};
-                  box-shadow: 0 0 0 2px ${currentTheme.colors.primary}20;
-                }
+                background: var(--c-bg);
+                color: var(--c-text);
+                border-color: var(--c-text-20);
               `"
               required
             />
@@ -273,15 +253,11 @@
             <label class="block text-sm font-medium mb-1" :class="`text-[${currentTheme.colors.textLight}]`">類型</label>
             <select
               v-model="newCategory.type"
-              class="w-full p-2 rounded-lg transition-all"
+              class="themed-input w-full p-3 rounded-lg transition-all border"
               :style="`
-                background: ${currentTheme.colors.background};
-                border: 1.5px solid ${currentTheme.colors.text}20;
-                color: ${currentTheme.colors.text};
-                &:focus {
-                  border-color: ${currentTheme.colors.primary};
-                  box-shadow: 0 0 0 2px ${currentTheme.colors.primary}20;
-                }
+                background: var(--c-bg);
+                color: var(--c-text);
+                border-color: var(--c-text-20);
               `"
               required
             >
@@ -293,7 +269,7 @@
             <button
               type="button"
               class="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
-              :class="`bg-[${currentTheme.colors.background}] text-[${currentTheme.colors.text}]`"
+              :style="`background: ${currentTheme.colors.background}; color: ${currentTheme.colors.text}; border: 1px solid ${currentTheme.colors.text}15;`"
               @click="showAddCategory = false"
             >
               取消
@@ -309,6 +285,7 @@
         </form>
       </div>
     </div>
+    </main>
   </div>
 </template>
 
@@ -372,6 +349,19 @@ const confirmClearData = () => {
 </script>
 
 <style scoped>
+/* 玻璃卡片與輸入聚焦：使用 CSS 變數，顏色來自最外層 inline style */
+.card-glass {
+  background: var(--c-surface);
+  box-shadow: 0 4px 20px -2px var(--c-text-10);
+  border: 1px solid var(--c-text-15);
+}
+
+.themed-input:focus {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 2px var(--c-primary-20);
+}
+
 .theme-transition {
   transition: all 0.3s ease;
 }
