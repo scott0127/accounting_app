@@ -217,12 +217,19 @@ const onSheetTouchEnd = () => {
   }
 }
 const onKeydown = (e: KeyboardEvent) => {
+  // 檢查是否在輸入框中輸入，如果是則不響應快捷鍵
+  const target = e.target as HTMLElement
+  const isTyping = target.tagName === 'INPUT' || 
+                   target.tagName === 'TEXTAREA' || 
+                   target.contentEditable === 'true' ||
+                   target.getAttribute('contenteditable') === 'true'
+  
   if (e.key === 'Escape') isSheetOpen.value = false
-  if ((e.key === '/' || e.key === 'F') && !isSearching.value) { // quick search
+  if ((e.key === '/' || e.key === 'F') && !isSearching.value && !isTyping) { // quick search
     e.preventDefault()
     openSearch()
   }
-  if ((e.key === 'a' || e.key === 'A') && !isSearching.value) { // quick add
+  if ((e.key === 'a' || e.key === 'A') && !isSearching.value && !isTyping) { // quick add
     e.preventDefault()
     openQuickAdd()
   }

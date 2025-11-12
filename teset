@@ -1,0 +1,41 @@
+#include <stdio.h>
+
+int main() {
+    int n; //使用者輸入的數字n
+    
+    //input n
+    scanf("%d", &n);
+    
+    int original_n = n; //備份原始數字
+    int sum_of_digits = 0; //初始化各個位數總和為0
+    int odd_digit_count = 0; //初始化奇數數字計數為0
+    
+    //迴圈迭代數字的每一個位數
+    while (n > 0) {
+        int digit = n % 10; //取出最末位的數字
+        
+        //條件一：各個位數總和
+        sum_of_digits += digit;
+        
+        //條件二：計算奇數數字的個數
+        if (digit % 2 != 0) {
+            odd_digit_count++;
+        }
+        
+        n = n / 10; //移除最末位的數字
+    }
+    
+    //檢查是否同時滿足兩個條件
+    //1. 各個位數總和不能被 5 整除 條件判斷跟not邏輯 
+    //2. 奇數數字的數量是 3 的倍數 
+    //複合邏輯的運用
+    if ((sum_of_digits % 5 != 0) && (odd_digit_count % 3 == 0)) {
+        // 如果兩個條件都滿足，印出成功訊息
+        printf("This number could be a jackpot winner!\n");
+    } else {
+        // 如果任一條件不滿足，印出失敗訊息
+        printf("This number does not match the clues.\n");
+    }
+    
+    return 0;
+}

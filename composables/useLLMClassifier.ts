@@ -1,9 +1,15 @@
 import { useTransactionStore } from '~/stores/transaction'
+import { parseGeminiResponse } from '~/utils/geminiParser'
 
 export interface LLMClassifierResult {
   type: 'income' | 'expense';
+  /** 主類別（與 categoryIds[0] 一致，保留相容性） */
   categoryId: string;
+  /** 最多 3 個類別，依優先順序排列（主→次→輔） */
+  categoryIds?: string[];
   confidence: number;
+  /** 可選：各類別對應的置信度，順序與 categoryIds 對應 */
+  confidences?: number[];
   description: string;
   explanation: string;
   errorMessage?: string;
@@ -57,7 +63,7 @@ export function useLLMClassifier() {
       .map(c => `${c.id}: ${c.name}`)
       .join('\n')
     
-    return `你是交易分類專家，專精於判斷交易是「支出」還是「收入」，並精確匹配到正確類別。
+    return `你是交易分類專家，專精於判斷交易是「支出」還是「收入」，並精準匹配到正確類別（支援最多 3 個類別，以主→次→輔順序）。
 
 ## 分類任務
 輸入: "${inputText}"
@@ -69,9 +75,10 @@ ${expenseCategories}
 ${incomeCategories}
 
 ## 分類方法
-1. 先判斷是支出還是收入
-2. 再從對應類別中選擇最匹配的ID
-3. 評估分類確信度
+1. 先判斷是支出還是收入（不可混用）
+2. 從對應類別中選出最匹配的 1~3 個 ID（主→次→輔，最多 3 個）
+3. 請確保所有選擇的類別皆屬於相同的 type（income 或 expense）
+4. 回傳整體信心分數，並（可選）回傳各類別對應的信心分數陣列
 
 ## 關鍵分類規則
 **支出判斷標準:**
@@ -97,20 +104,22 @@ ${incomeCategories}
 - investment: 股票、基金、理財、投資收益
 
 ## 輸出格式
-只回傳JSON，無其他文字:
+只回傳純JSON，不要markdown格式包裝，不要加任何其他文字:
 {
-  "type": "expense" 或 "income",
-  "categoryId": "必須是上述ID之一", 
-  "confidence": 0-100整數,
+  "type": "expense" | "income",
+  "categoryIds": ["主類別ID", "次類別ID", "輔類別ID"], // 1~3 個，主類別排第一
+  "categoryId": "主類別ID", // 與 categoryIds[0] 相同，提供相容性
+  "confidence": 0-100整數, // 整體信心
+  "confidences": [95, 70, 55], // 可選：與 categoryIds 順序對應
   "description": "簡潔描述，格式: 主體 金額元",
   "explanation": "分類理由"
 }
 
 ## 分類範例
-"星巴克咖啡85元" → type: "expense", categoryId: "food"
-"公司發薪35000" → type: "income", categoryId: "salary"  
-"捷運卡儲值500" → type: "expense", categoryId: "transport"
-"股票獲利8000" → type: "income", categoryId: "investment"`
+"星巴克咖啡85元" → type: "expense", categoryIds: ["food"], categoryId: "food"
+"午餐麥當勞外送+加價購飲料" → type: "expense", categoryIds: ["food", "shopping"], categoryId: "food"
+"公司發薪35000" → type: "income", categoryIds: ["salary"], categoryId: "salary"
+"股票獲利8000" → type: "income", categoryIds: ["investment"], categoryId: "investment"`
   }
 
   /**
@@ -118,217 +127,292 @@ ${incomeCategories}
    * Features: Progressive loading, streaming responses, immediate feedback
    */
   const classifyWithLLM = async (
-    description: string, 
+    description: string,
     options?: {
       enableStreaming?: boolean;
       onProgress?: (stage: string, progress: number) => void;
       onIntermediateResult?: (result: Partial<LLMClassifierResult>) => void;
     }
   ): Promise<LLMClassifierResult> => {
-    const { enableStreaming = false, onProgress, onIntermediateResult } = options || {};
-    
+    const { enableStreaming = false, onProgress, onIntermediateResult } = options || {}
+
     if (!description || !description.trim()) {
-      return createFallbackResult('', '未提供交易描述');
+      return createFallbackResult('', '未提供交易描述')
     }
-    
-    // 立即提供本地預分類結果
-    const fallbackResult = createFallbackResult(description);
-    onIntermediateResult?.(fallbackResult);
-    onProgress?.('正在準備分析...', 10);
-    
-    // Input preprocessing
-    const preprocessedInput = preprocessInput(description);
-    onProgress?.('正在處理輸入...', 20);
-    
+
+    const fallbackResult = createFallbackResult(description)
+    onIntermediateResult?.(fallbackResult)
+    onProgress?.('正在準備分析...', 10)
+
+    const preprocessedInput = preprocessInput(description)
+    onProgress?.('正在處理輸入...', 20)
+
+    const runtimeConfig = useRuntimeConfig()
+    const apiKey = runtimeConfig.public.geminiApiKey
+    if (!apiKey) {
+      onProgress?.('缺少 Gemini API Key，使用備援分類', 100)
+      const fallback = createFallbackResult(preprocessedInput, '缺少 Gemini API Key')
+      fallback.metadata = { fallbackUsed: true }
+      return fallback
+    }
+
     try {
-      const prompt = buildClassificationPrompt(preprocessedInput);
-      const config = useRuntimeConfig();
-      onProgress?.('正在連接AI服務...', 30);
-      
-      // 優化的 API 配置，支持流式響應
-      const apiConfig = {
-        model: "gpt-3.5-turbo-1106", // 使用更快的模型
-        messages: [
-          { 
-            role: "system", 
-            content: "你是快速交易分類AI。請快速分析並以JSON格式回傳分類結果。" 
-          },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.1,
-        max_tokens: 150, // 進一步減少 token 數量
-        ...(enableStreaming && { stream: true }) // 支持流式響應
-      };
-      
-      const startTime = Date.now();
-      let result: LLMClassifierResult;
-      
+      const prompt = buildClassificationPrompt(preprocessedInput)
+      onProgress?.('正在連接 AI 服務...', 30)
+
+      const startTime = Date.now()
+      const generationConfig = { temperature: 0.1, maxOutputTokens: 1024 }
+      const model = 'gemini-flash-latest'
+      const resolvedApiKey = apiKey as string
+
+      let result: LLMClassifierResult
       if (enableStreaming) {
-        result = await handleStreamingClassification(apiConfig, preprocessedInput, onProgress, onIntermediateResult);
+        result = await handleStreamingClassification({
+          prompt,
+          model,
+          apiKey: resolvedApiKey,
+          input: preprocessedInput,
+          generationConfig,
+          onProgress,
+          onIntermediateResult
+        })
       } else {
-        result = await handleStandardClassification(apiConfig, preprocessedInput, onProgress);
+        result = await handleStandardClassification({
+          prompt,
+          model,
+          apiKey: resolvedApiKey,
+          input: preprocessedInput,
+          generationConfig,
+          onProgress
+        })
       }
-      
-      // 記錄性能指標
-      const processingTime = Date.now() - startTime;
+
+      const processingTime = Date.now() - startTime
       result.metadata = {
         ...result.metadata,
         processingTime,
         fallbackUsed: false
-      };
-      
-      onProgress?.('分析完成', 100);
-      console.log(`✅ LLM Classification completed in ${processingTime}ms`);
-      
-      return result;
-      
+      }
+
+      onProgress?.('分析完成', 100)
+      console.log(`✅ Gemini Classification completed in ${processingTime}ms`)
+      return result
     } catch (error: any) {
-      console.error('❌ LLM Classification failed:', error);
-      onProgress?.('分析失敗，使用備用分類', 100);
-      
-      const errorResult = createFallbackResult(preprocessedInput, `LLM分析失敗: ${error?.message || '未知錯誤'}`);
-      errorResult.metadata = { fallbackUsed: true, processingTime: Date.now() };
-      
-      return errorResult;
+      console.error('❌ Gemini classification failed:', error)
+      console.error('❌ Full error details:', {
+        message: error.message,
+        stack: error.stack,
+        preprocessedInput
+      })
+      onProgress?.('分析失敗，使用備用分類', 100)
+
+      const errorResult = createFallbackResult(preprocessedInput, `LLM分析失敗: ${error?.message || '未知錯誤'}`)
+      errorResult.metadata = { fallbackUsed: true, processingTime: Date.now() }
+      return errorResult
     }
-  };
+  }
 
   /**
    * 🌊 處理流式分類響應
    */
-  const handleStreamingClassification = async (
-    apiConfig: any,
-    input: string,
-    onProgress?: (stage: string, progress: number) => void,
+  const handleStreamingClassification = async ({
+    prompt,
+    model,
+    apiKey,
+    input,
+    generationConfig,
+    onProgress,
+    onIntermediateResult
+  }: {
+    prompt: string
+    model: string
+    apiKey: string
+    input: string
+    generationConfig: { temperature: number; maxOutputTokens: number }
+    onProgress?: (stage: string, progress: number) => void
     onIntermediateResult?: (result: Partial<LLMClassifierResult>) => void
-  ): Promise<LLMClassifierResult> => {
-    const config = useRuntimeConfig();
-    
-    onProgress?.('開始流式分析...', 40);
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.public.openaiApiKey}`,
-        'Accept': 'text/event-stream'
-      },
-      body: JSON.stringify(apiConfig)
-    });
-    
+  }): Promise<LLMClassifierResult> => {
+    onProgress?.('開始流式分析...', 40)
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream'
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            role: 'system',
+            parts: [{ text: '你是快速交易分類AI。請分析並回傳純JSON格式，不要用markdown包裝，不要加任何額外文字。' }]
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig
+        })
+      }
+    )
+
     if (!response.ok) {
-      throw new Error(`API請求失敗: ${response.status}`);
+      throw new Error(`API請求失敗: ${response.status}`)
     }
-    
-    const reader = response.body?.getReader();
+
+    const reader = response.body?.getReader()
     if (!reader) {
-      throw new Error('無法建立串流讀取器');
+      throw new Error('無法建立串流讀取器')
     }
-    
-    const decoder = new TextDecoder();
-    let accumulatedContent = '';
-    let progress = 50;
-    
+
+    const decoder = new TextDecoder()
+    let accumulatedContent = ''
+    let progress = 50
+
     try {
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            
-            if (data === '[DONE]') {
-              progress = 90;
-              onProgress?.('正在完成分析...', progress);
-              break;
-            }
-            
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              
-              if (content) {
-                accumulatedContent += content;
-                progress = Math.min(progress + 5, 85);
-                onProgress?.('正在接收分析結果...', progress);
-                
-                // 嘗試解析部分結果
-                const partialResult = tryParsePartialResult(accumulatedContent);
-                if (partialResult) {
-                  onIntermediateResult?.(partialResult);
-                }
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim()
+          if (!line.startsWith('data:')) continue
+
+          const data = line.slice(5).trim()
+          if (!data || data === '[DONE]') {
+            progress = Math.min(progress + 5, 90)
+            onProgress?.('正在完成分析...', progress)
+            continue
+          }
+
+          try {
+            const parsed = JSON.parse(data)
+            const parts = parsed.candidates?.[0]?.content?.parts || []
+            const textChunk = parts.map((part: any) => part?.text || '').join('')
+
+            if (textChunk) {
+              accumulatedContent += textChunk
+              progress = Math.min(progress + 5, 85)
+              onProgress?.('正在接收分析結果...', progress)
+
+              const partialResult = tryParsePartialResult(accumulatedContent)
+              if (partialResult) {
+                onIntermediateResult?.(partialResult)
               }
-            } catch (e) {
-              // 忽略解析錯誤，繼續處理
             }
+          } catch {
+            // 忽略 JSON 解析錯誤，繼續處理
           }
         }
       }
+
+      onProgress?.('正在驗證結果...', 95)
       
-      onProgress?.('正在驗證結果...', 95);
-      return parseAndValidateResult(accumulatedContent, input);
-      
+      // 使用新的解析工具處理最終結果
+      try {
+        const mockResponse = {
+          candidates: [{ content: { parts: [{ text: accumulatedContent }] } }]
+        }
+        const finalResult = parseGeminiResponse<any>(mockResponse)
+        return parseAndValidateResult(finalResult, input)
+      } catch (parseError) {
+        console.error('❌ Final stream parse failed, using raw content:', parseError)
+        return parseAndValidateResult(accumulatedContent, input)
+      }
     } finally {
-      reader.releaseLock();
+      reader.releaseLock()
     }
-  };
+  }
 
   /**
    * 📋 處理標準分類響應（優化版）
    */
-  const handleStandardClassification = async (
-    apiConfig: any,
-    input: string,
+  const handleStandardClassification = async ({
+    prompt,
+    model,
+    apiKey,
+    input,
+    generationConfig,
+    onProgress
+  }: {
+    prompt: string
+    model: string
+    apiKey: string
+    input: string
+    generationConfig: { temperature: number; maxOutputTokens: number }
     onProgress?: (stage: string, progress: number) => void
-  ): Promise<LLMClassifierResult> => {
-    const config = useRuntimeConfig();
-    
-    // 使用並行請求和超時控制
+  }): Promise<LLMClassifierResult> => {
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('請求超時')), 8000) // 8秒超時
-    );
-    
-    const requestPromise = fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.public.openaiApiKey}`
-      },
-      body: JSON.stringify(apiConfig)
-    });
-    
-    onProgress?.('正在等待AI響應...', 50);
-    
-    const response = await Promise.race([requestPromise, timeoutPromise]);
-    
+      setTimeout(() => reject(new Error('請求超時')), 8000)
+    )
+
+    const requestPromise = fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            role: 'system',
+            parts: [{ text: '你是快速交易分類AI。請分析並回傳純JSON格式，不要用markdown包裝，不要加任何額外文字。' }]
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig
+        })
+      }
+    )
+
+    onProgress?.('正在等待AI響應...', 50)
+
+    const response = await Promise.race([requestPromise, timeoutPromise])
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`API請求失敗: ${response.status} - ${errorData.error?.message || response.statusText}`);
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`API請求失敗: ${response.status} - ${errorData.error?.message || response.statusText}`)
     }
+
+    onProgress?.('正在處理響應...', 80)
+    const data = await response.json()
+
+    // 使用新的解析工具直接解析
+    const parsedResult = parseGeminiResponse<any>(data)
+    console.log('✅ Parsed Gemini response:', parsedResult)
     
-    onProgress?.('正在處理響應...', 80);
-    const data = await response.json();
-    
-    if (!data.choices || !data.choices[0]?.message?.content) {
-      throw new Error('API回應格式異常');
-    }
-    
-    return parseAndValidateResult(data.choices[0].message.content, input);
-  };
+    // 直接驗證解析後的物件，不再進行額外的JSON字符串化
+    return parseAndValidateResult(parsedResult, input)
+  }
 
   /**
    * 🔍 嘗試解析部分結果（用於流式響應）
    */
   const tryParsePartialResult = (content: string): Partial<LLMClassifierResult> | null => {
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return null;
+      // 使用新的解析工具，但允許部分失败
+      const mockResponse = {
+        candidates: [{ content: { parts: [{ text: content }] } }]
+      }
       
-      const parsed = JSON.parse(jsonMatch[0]);
+      let parsed: any
+      try {
+        parsed = parseGeminiResponse<any>(mockResponse)
+      } catch {
+        // 如果新解析器失敗，退回到簡單解析
+        const jsonMatch = content.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) return null
+        parsed = JSON.parse(jsonMatch[0].trim())
+      }
       
       // 只返回已確定的部分
       const partial: Partial<LLMClassifierResult> = {};
@@ -336,9 +420,15 @@ ${incomeCategories}
       if (parsed.type && ['expense', 'income'].includes(parsed.type)) {
         partial.type = parsed.type;
       }
-      
-      if (parsed.categoryId && typeof parsed.categoryId === 'string') {
+      if (Array.isArray(parsed.categoryIds)) {
+        const ids = parsed.categoryIds.filter((x: any) => typeof x === 'string')
+        if (ids.length) {
+          partial.categoryIds = ids.slice(0, 3)
+          partial.categoryId = ids[0]
+        }
+      } else if (parsed.categoryId && typeof parsed.categoryId === 'string') {
         partial.categoryId = parsed.categoryId;
+        partial.categoryIds = [parsed.categoryId]
       }
       
       if (typeof parsed.confidence === 'number') {
@@ -365,33 +455,41 @@ ${incomeCategories}
   /**
    * Enhanced JSON parsing with comprehensive validation
    */
-  const parseAndValidateResult = (content: string, originalInput: string): LLMClassifierResult => {
+  const parseAndValidateResult = (parsed: any, originalInput: string): LLMClassifierResult => {
     try {
-      // Extract JSON from response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('回應中未找到有效JSON');
-      }
+      console.log('🔍 Validating parsed content:', parsed)
       
-      const parsed = JSON.parse(jsonMatch[0]);
+      // 如果輸入是字符串，則解析它；否則直接使用物件
+      const content = typeof parsed === 'string' ? JSON.parse(parsed) : parsed
       
       // Comprehensive validation
       const validationErrors: string[] = [];
       
-      if (!parsed.type || !['expense', 'income'].includes(parsed.type)) {
+      if (!content.type || !['expense', 'income'].includes(content.type)) {
         validationErrors.push('交易類型無效');
       }
       
-      const validCategories = store.categories.filter(c => c.type === parsed.type);
-      if (!parsed.categoryId || !validCategories.some(c => c.id === parsed.categoryId)) {
+      const validCategories = store.categories.filter(c => c.type === content.type);
+      const validIds = new Set(validCategories.map(c => c.id))
+
+      let categoryIds: string[] = []
+      if (Array.isArray(content.categoryIds)) {
+        categoryIds = content.categoryIds.filter((id: any) => typeof id === 'string' && validIds.has(id))
+      }
+
+      // 後相容：若只回傳 categoryId，仍然接受
+      if ((!categoryIds || categoryIds.length === 0) && typeof content.categoryId === 'string' && validIds.has(content.categoryId)) {
+        categoryIds = [content.categoryId]
+      }
+      if (!categoryIds || categoryIds.length === 0) {
         validationErrors.push('類別ID無效');
       }
       
-      if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 100) {
+      if (typeof content.confidence !== 'number' || content.confidence < 0 || content.confidence > 100) {
         validationErrors.push('信心度數值無效');
       }
       
-      if (!parsed.description || typeof parsed.description !== 'string') {
+      if (!content.description || typeof content.description !== 'string') {
         validationErrors.push('描述格式無效');
       }
       
@@ -400,16 +498,22 @@ ${incomeCategories}
       }
       
       // Return validated result
-      return {
-        type: parsed.type,
-        categoryId: parsed.categoryId,
-        confidence: Math.round(parsed.confidence),
-        description: parsed.description.trim(),
-        explanation: parsed.explanation || '由AI智能分析完成'
-      };
+      const result: LLMClassifierResult = {
+        type: content.type,
+        categoryId: categoryIds[0],
+        categoryIds,
+        confidence: Math.round(content.confidence),
+        description: String(content.description || originalInput).trim(),
+        explanation: content.explanation || '由AI智能分析完成'
+      }
+      if (Array.isArray(content.confidences)) {
+        const cs = content.confidences.filter((n: any) => typeof n === 'number').map((n: number) => Math.round(n))
+        if (cs.length) result.confidences = cs.slice(0, result.categoryIds?.length || 3)
+      }
+      return result;
       
     } catch (error: any) {
-      console.error('JSON解析失敗:', error.message, 'Content:', content);
+      console.error('JSON解析失敗:', error.message, 'Content:', parsed);
       throw new Error(`結果解析失敗: ${error.message}`);
     }
   };
@@ -472,9 +576,10 @@ ${incomeCategories}
                          store.categories[0] || 
                          { id: 'other', type: 'expense', name: '其他' };
     
-    return {
+  return {
       type: finalCategory.type as 'expense' | 'income',
       categoryId: finalCategory.id,
+      categoryIds: [finalCategory.id],
       confidence: bestMatch.confidence,
       description: description || '未知交易',
       explanation: `AI分析失敗，使用關鍵字匹配: ${errorContext || '自動分類'}`,

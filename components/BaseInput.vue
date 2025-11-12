@@ -18,20 +18,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-const props = defineProps<{
-  modelValue: string | number,
-  label?: string,
-  placeholder?: string,
-  type?: string,
-  inputmode?: string,
-  min?: string | number,
-  max?: string | number,
-  disabled?: boolean,
-  required?: boolean,
+import { ref, watch } from 'vue'
+
+type InputType = HTMLInputElement['type']
+type InputMode = 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search'
+
+const props = withDefaults(defineProps<{
+  modelValue: string | number
+  label?: string
+  placeholder?: string
+  type?: InputType
+  inputmode?: InputMode
+  min?: string | number
+  max?: string | number
+  disabled?: boolean
+  required?: boolean
   inputClass?: string
-}>();
-const emit = defineEmits(['update:modelValue']);
-const inputValue = ref(props.modelValue);
-watch(() => props.modelValue, v => inputValue.value = v);
+}>(), {
+  type: 'text'
+})
+
+const emit = defineEmits(['update:modelValue'])
+const inputValue = ref(props.modelValue)
+
+watch(() => props.modelValue, (value) => {
+  inputValue.value = value
+})
 </script>

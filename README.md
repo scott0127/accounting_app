@@ -5,7 +5,7 @@
 ## 主要功能
 
 *   **⚡ 快速記帳**: 輕鬆記錄您的每一筆收入和支出。
-*   **🤖 AI 智能分類**: 自動辨識並分類您的交易，省時省力。 (需設定 OpenAI API Key)
+*   **🤖 AI 智能分類**: 自動辨識並分類您的交易，省時省力。 (需設定 Gemini API Key)
 *   **📊 圖表分析**:透過直觀的圖表和視覺化數據，清晰掌握您的財務狀況。
 *   **💰 預算管理**: 設定和追蹤您的月度預算，有效控制開支。
 *   **🎯 財務目標**: 設定並追蹤您的財務目標。
@@ -37,7 +37,7 @@
         ```bash
         cp .env.example .env
         ```
-    *   編輯 `.env` 檔案，填入您的 Supabase 和 OpenAI API 金鑰等資訊。這些金鑰可以從您的 Supabase 專案儀表板和 OpenAI 開發者平台獲取。
+    *   編輯 `.env` 檔案，填入您的 Supabase 和 Gemini API 金鑰等資訊。Supabase 金鑰可於專案儀表板取得，Gemini API Key 可於 Google AI Studio 申請。
 
     ```
     # .env 檔案內容範例:
@@ -45,8 +45,8 @@
     SUPABASE_URL="YOUR_SUPABASE_URL"
     SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
 
-    # OpenAI (用於 AI 記帳分類功能)
-    OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
+    # Gemini (用於 AI 記帳分類功能)
+    GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
     ```
 
 4.  **設定 Supabase 資料庫 (Set up Supabase database):**
@@ -56,7 +56,7 @@
     *   **重要**: `schema.sql` 包含預設的支出和收入類別。
 
 5.  **(可選) 設定 LLM/AI 功能 (Optional - Set up LLM/AI Features):**
-    *   詳細的 AI 功能設定（例如 OpenAI API 金鑰的獲取與使用）請參考 `LLM_SETUP.md` 文件。
+    *   詳細的 AI 功能設定（例如 Gemini API 金鑰的獲取與使用）請參考 `LLM_SETUP.md` 文件。
 
 ## ▶️ 執行專案 (Running the Project)
 
@@ -177,7 +177,7 @@ pnpm dev
 *   **狀態管理 (State Management):** [Pinia](https://pinia.vuejs.org/)
 *   **CSS 框架 (CSS Framework):** [Tailwind CSS](https://tailwindcss.com/)
 *   **後端服務 (Backend Service):** [Supabase](https://supabase.io/) (PostgreSQL, Authentication, Storage)
-*   **AI 功能 (AI Features):** [OpenAI API](https://openai.com/docs)
+*   **AI 功能 (AI Features):** [Gemini API](https://ai.google.dev/gemini-api/docs)
 *   **圖表庫 (Charting Library):** [Chart.js](https://www.chartjs.org/)
 *   **日期處理 (Date Utility):** [Day.js](https://day.js.org/)
 *   **行動應用打包 (Mobile App Bundling):** [Capacitor](https://capacitorjs.com/)

@@ -8,8 +8,9 @@ export default defineNuxtConfig({
     '@vite-pwa/nuxt',
   ],
   runtimeConfig: {
+    geminiApiKey: process.env.GEMINI_API_KEY,
     public: {
-      openaiApiKey: process.env.OPENAI_API_KEY,
+      geminiApiKey: process.env.GEMINI_API_KEY,
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY
     }
@@ -74,5 +75,5 @@ export default defineNuxtConfig({
   },
   pinia: {
     autoImports: ['defineStore', 'storeToRefs']
-  }
+  } as any
 })

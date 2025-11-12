@@ -65,18 +65,32 @@
     >
       <!-- 智能輸入 -->
       <div class="bg-white rounded-xl shadow-sm p-4">
-        <label class="block text-sm text-gray-600 mb-2">消費內容</label>
+        <label class="block text-sm text-gray-600 mb-2">
+          消費內容
+          <span class="text-xs text-gray-400 ml-2">（停止輸入2秒後自動分析，或按Enter鍵立即分析）</span>
+        </label>
         <div class="relative">
           <input
             v-model="aiDescription"
             type="text"
             class="w-full text-lg focus:outline-none px-4 py-2 border border-gray-200 rounded-lg"
             placeholder="例如：午餐吃麥當勞100元"
-            @blur="classifyWithLLMApiStreaming"
-            @keyup.enter="classifyWithLLMApiStreaming"
+            @input="handleDescriptionInput"
+            @keyup.enter="handleManualAnalyze"
             :disabled="isProcessing"
             required
           />
+          
+          <!-- 手動分析按鈕 -->
+          <button
+            v-if="aiDescription.trim() && !isProcessing"
+            @click="handleManualAnalyze"
+            type="button"
+            class="absolute right-3 top-1/2 transform -translate-y-1/2 px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+          >
+            分析
+          </button>
+          
           <!-- 處理中指示器 -->
           <div
             v-if="isProcessing"
@@ -128,7 +142,7 @@
                 <span
                   class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full"
                 >
-                  {{ getCategoryName(llmResult.categoryId) }}
+                  {{ getCategoryName((llmResult.categoryIds && llmResult.categoryIds[0]) || llmResult.categoryId) }}
                 </span>
                 <span
                   v-if="llmResult.confidence > 0"
@@ -794,7 +808,7 @@ input[type="date"] {
 </style>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useTransactionStore } from "~/stores/transaction";
 import { useSmartFinancialAssistant } from "~/composables/useSmartFinancialAssistant";
@@ -843,6 +857,8 @@ const classificationResult = ref<any>(null);
 const llmResult = ref<{
   type: "income" | "expense";
   categoryId: string;
+  categoryIds?: string[];
+  confidences?: number[];
   confidence: number;
   description: string;
   explanation: string;
@@ -861,6 +877,59 @@ const aiSelectedCategories = ref<string[]>([]);
 const intermediateResult = ref<Partial<typeof llmResult.value> | null>(null);
 let extractedAmount = ref(0);
 let debounceTimeout: any = null;
+let isAnalyzing = ref(false); // 防止重複分析
+
+// 防抖處理輸入
+const handleDescriptionInput = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const newValue = target.value;
+  
+  // 如果值沒有變化，不執行任何操作
+  if (newValue === aiDescription.value) {
+    return;
+  }
+  
+  aiDescription.value = newValue;
+  
+  // 如果正在分析中，不啟動新的分析
+  if (isAnalyzing.value || isProcessing.value) {
+    return;
+  }
+  
+  // 清除之前的防抖計時器
+  if (debounceTimeout) {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = null;
+  }
+  
+  // 如果輸入為空，清除結果
+  if (!newValue.trim()) {
+    llmResult.value = null;
+    intermediateResult.value = null;
+    extractedAmount.value = 0;
+    return;
+  }
+  
+  // 設置新的防抖計時器 - 用戶停止輸入2秒後觸發分析
+  debounceTimeout = setTimeout(() => {
+    if (aiDescription.value.trim() && !isAnalyzing.value && !isProcessing.value) {
+      classifyWithLLMApiStreaming();
+    }
+  }, 2000); // 2秒延遲
+};
+
+// 手動觸發分析
+const handleManualAnalyze = () => {
+  // 清除防抖計時器，立即執行
+  if (debounceTimeout) {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = null;
+  }
+  
+  if (aiDescription.value.trim() && !isAnalyzing.value && !isProcessing.value) {
+    classifyWithLLMApiStreaming();
+  }
+};
 
 // AI 分析狀態（移除重複宣告）
 // analysisProgress 已在 useSmartFinancialAssistant 中提供
@@ -940,7 +1009,7 @@ const generateAISuggestion = async () => {
           essentials: insights.detailed.budgetOptimization.essentials,
           fun: insights.detailed.budgetOptimization.discretionary, // 修復：使用 discretionary 字段
           savings: insights.detailed.budgetOptimization.savings,
-          explanation: insights.detailed.budgetOptimization.explanation
+          explanation: insights.detailed.budgetOptimization.explanation ?? ''
         };
         smartAnalysisResult.value.conversationalAdvice = generateConversationalAdvice(insights.quick, insights.detailed);
         
@@ -1144,7 +1213,11 @@ const resetForm = () => {
   aiSelectedCategory.value = "";
   aiSelectedCategories.value = [];
   isProcessing.value = false;
+  isAnalyzing.value = false;
+  intermediateResult.value = null;
+  extractedAmount.value = 0;
 
+  // 清除防抖計時器
   if (debounceTimeout) {
     clearTimeout(debounceTimeout);
     debounceTimeout = null;
@@ -1187,8 +1260,8 @@ const isAIValid = computed(() => {
     extractedAmount.value > 0 &&
     date.value &&
     (showManualCategorySelector.value
-      ? aiSelectedCategory.value
-      : llmResult.value?.categoryId || false)
+      ? (aiSelectedCategories.value.length > 0 || !!aiSelectedCategory.value)
+      : (!!llmResult.value?.categoryId || (llmResult.value?.categoryIds && llmResult.value.categoryIds.length > 0)))
   );
 });
 
@@ -1218,12 +1291,20 @@ const getCategoryName = (categoryId: string): string => {
 
 // 新的流式 LLM 分類 API
 const classifyWithLLMApiStreaming = async () => {
-  if (!aiDescription.value) return;
+  if (!aiDescription.value || isAnalyzing.value || isProcessing.value) {
+    console.log('跳過分析：', { hasDescription: !!aiDescription.value, isAnalyzing: isAnalyzing.value, isProcessing: isProcessing.value });
+    return;
+  }
+  
+  // 設置分析狀態，防止重複觸發
+  isAnalyzing.value = true;
+  isProcessing.value = true;
   
   // 清除之前的結果
   intermediateResult.value = null;
   llmResult.value = null;
-  isProcessing.value = true;
+  
+  console.log('開始 AI 分析:', aiDescription.value);
   
   try {
     // 使用智能分類（自動選擇最佳方法）
@@ -1245,13 +1326,18 @@ const classifyWithLLMApiStreaming = async () => {
     const matches = aiDescription.value.match(/\d+/);
     extractedAmount.value = matches ? parseInt(matches[0]) : 0;
     
-    // 設置類別
+    // 設置類別（優先使用多類別）
+    const predictedIds = (result as any).categoryIds && (result as any).categoryIds.length
+      ? (result as any).categoryIds as string[]
+      : [result.categoryId];
     if (!showManualCategorySelector.value || aiSelectedCategory.value === "") {
-      aiSelectedCategory.value = result.categoryId;
+      aiSelectedCategory.value = predictedIds[0];
     }
     if (!showManualCategorySelector.value || aiSelectedCategories.value.length === 0) {
-      aiSelectedCategories.value = [result.categoryId];
+      aiSelectedCategories.value = predictedIds.slice(0, 3);
     }
+    
+    console.log('AI 分析完成:', result);
     
   } catch (error: unknown) {
     console.error("LLM classification failed:", error);
@@ -1275,7 +1361,9 @@ const classifyWithLLMApiStreaming = async () => {
     }
   } finally {
     isProcessing.value = false;
+    isAnalyzing.value = false;
     intermediateResult.value = null; // 清除中間結果
+    console.log('AI 分析結束');
   }
 };
 
@@ -1295,12 +1383,15 @@ const classifyWithLLMApi = async () => {
     const matches = aiDescription.value.match(/\d+/);
     extractedAmount.value = matches ? parseInt(matches[0]) : 0;
     
-    // 設置類別
+    // 設置類別（優先使用多類別）
+    const predictedIds = (result as any).categoryIds && (result as any).categoryIds.length
+      ? (result as any).categoryIds as string[]
+      : [result.categoryId];
     if (!showManualCategorySelector.value || aiSelectedCategory.value === "") {
-      aiSelectedCategory.value = result.categoryId;
+      aiSelectedCategory.value = predictedIds[0];
     }
     if (!showManualCategorySelector.value || aiSelectedCategories.value.length === 0) {
-      aiSelectedCategories.value = [result.categoryId];
+      aiSelectedCategories.value = predictedIds.slice(0, 3);
     }
   } catch (error: unknown) {
     console.error("LLM classification failed:", error);
@@ -1328,7 +1419,9 @@ const handleSubmitAI = async () => {
   if (!aiDescription.value || !llmResult.value || isProcessing.value) return;
   const finalCategoryIds = showManualCategorySelector.value
     ? (aiSelectedCategories.value.length ? aiSelectedCategories.value : [aiSelectedCategory.value])
-    : [llmResult.value.categoryId];
+    : ((llmResult.value.categoryIds && llmResult.value.categoryIds.length)
+        ? llmResult.value.categoryIds.slice(0, 3)
+        : [llmResult.value.categoryId]);
 
   // 取得目前選擇的 category
   const categoryList = [...incomeCategories.value, ...expenseCategories.value];
@@ -1353,7 +1446,7 @@ const handleSubmitAI = async () => {
       date: date.value,
       description: llmResult.value.description || aiDescription.value,
     });
-    if (showManualCategorySelector.value && finalCategoryIds[0] !== llmResult.value.categoryId) {
+  if (showManualCategorySelector.value && finalCategoryIds[0] !== ((llmResult.value.categoryIds && llmResult.value.categoryIds[0]) || llmResult.value.categoryId)) {
       rememberCorrection(aiDescription.value, finalCategoryIds[0]);
     }
     router.push("/transactions");
@@ -1420,6 +1513,18 @@ onMounted(async () => {
   } catch (error) {
     console.error("初始化交易服務失敗:", error);
   }
+});
+
+// 組件卸載時清理計時器
+onBeforeUnmount(() => {
+  if (debounceTimeout) {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = null;
+  }
+  
+  // 重置分析狀態
+  isAnalyzing.value = false;
+  isProcessing.value = false;
 });
 </script>
 

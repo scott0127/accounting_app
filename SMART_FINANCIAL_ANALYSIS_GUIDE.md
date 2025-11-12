@@ -189,7 +189,7 @@ const detailedAnalysis = ref<DetailedAnalysis | null>(null)
 const callOptimizedLLM = async (context: string) => {
   try {
     // 嘗試 LLM 分析
-    return await openaiAnalysis(context)
+    return await geminiAnalysis(context)
   } catch (error) {
     // 降級到基本分析
     return generateFallbackAnalysis()

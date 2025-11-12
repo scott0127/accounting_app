@@ -27,8 +27,8 @@
         :value="modelValue"
         :placeholder="placeholder"
         :required="required"
-        :disabled="disabled"
-        :readonly="readonly"
+  :disabled="disabled"
+  :readonly="isReadonly"
         :min="min"
         :max="max"
         :step="step"
@@ -74,11 +74,14 @@
 
 <script setup lang="ts">
 import { computed, useSlots } from 'vue'
+import { useTheme } from '~/composables/useTheme'
+
+type InputType = HTMLInputElement['type']
 
 interface Props {
   modelValue: string | number
   label?: string
-  type?: string
+  type?: InputType
   placeholder?: string
   required?: boolean
   disabled?: boolean
@@ -106,6 +109,7 @@ const emit = defineEmits<{
 
 const slots = useSlots()
 const { currentTheme } = useTheme()
+const isReadonly = computed(() => props.readonly ?? false)
 
 const inputId = computed(() => `input-${Math.random().toString(36).substr(2, 9)}`)
 
